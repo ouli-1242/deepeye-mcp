@@ -8,18 +8,40 @@
 pip install deepeye-mcp
 ```
 
-或从源码安装：
+或从源码安装（开发者）：
+
+**第 1 步：下载源码并进入目录**
 
 ```bash
 git clone https://github.com/ouli-1242/deepeye-mcp.git
-cd deepeye
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-pip install -e ".[dev]"
+cd deepeye-mcp
 ```
+
+> 注意：`cd` 进入的是克隆下来的 `deepeye-mcp` 目录（即你刚才下载的文件夹名）。
+
+**第 2 步：创建虚拟环境**
+
+```bash
+python -m venv .venv
+```
+
+**第 3 步：激活虚拟环境 + 安装**
+
+Windows：
+
+```bash
+.venv\Scripts\activate
+pip install -e .
+```
+
+macOS / Linux：
+
+```bash
+source .venv/bin/activate
+pip install -e .
+```
+
+装好后命令 `deepeye` 即可用。
 
 要求：Python 3.11+，一个视觉模型 API Key。
 
