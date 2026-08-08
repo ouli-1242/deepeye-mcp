@@ -16,6 +16,7 @@ from deepeye_mcp.config import settings
 from deepeye_mcp.tools import (
     _DEFAULT_DESCRIBE_PROMPT,
     _OCR_PROMPT,
+    analyze_images,
     analyze_layout,
     ask_about_image,
     describe_image,
@@ -450,3 +451,57 @@ async def test_extract_table_invalid_json_degraded(mock_factory):
     result = await extract_table(image_source=_DATA_URI)
 
     assert "表格提取失败" in result[0].text
+
+
+# ---------------------------------------------------------------------------
+# analyze_images
+# ---------------------------------------------------------------------------
+
+
+@patch("deepeye_mcp.tools.parse_image_source")
+@patch("deepeye_mcp.tools.create_vision_adapter")
+async def test_analyze_images_two_images(mock_factory, mock_parse):
+    """两张图并发：逐图结果 + 一次纯文本汇总。"""
+    mock_parse.return_value = ("iVBOR", "image/png")
+    adapter = _build_mock_adapter(return_value="图像描述A")
+    adapter.describe_text = AsyncMock(return_value="对比总结")
+    mock_factory.return_value = adapter
+
+    result = await analyze_images(image_sources=["a.png", "b.png"])
+
+    text = result[0].text
+    assert "[1] a.png: 图像描述A" in text
+    assert "[2] b.png: 图像描述A" in text
+    assert "【跨图汇总】" in text
+    assert "对比总结" in text
+    # 两条逐图 + 一条汇总，共 3 次模型调用
+    assert adapter.describe.await_count == 2
+    adapter.describe_text.assert_awaited_once()
+
+
+@patch("deepeye_mcp.tools.parse_image_source")
+@patch("deepeye_mcp.tools.create_vision_adapter")
+async def test_analyze_images_isolated_failure(mock_factory, mock_parse):
+    """单张失败不阻塞整体，返回分类后的占位文本。"""
+    mock_parse.return_value = ("iVBOR", "image/png")
+    adapter = MagicMock()
+    adapter.describe = AsyncMock(side_effect=[RuntimeError("boom"), "ok"])
+    adapter.describe_text = AsyncMock(return_value="汇总")
+    mock_factory.return_value = adapter
+
+    result = await analyze_images(image_sources=["bad.png", "good.png"])
+
+    text = result[0].text
+    assert "boom" in text  # unknown 分类保留原始异常
+    assert "[2] good.png: ok" in text
+    assert "汇总" in text
+
+
+@patch("deepeye_mcp.tools.create_vision_adapter")
+async def test_analyze_images_empty_list(mock_factory):
+    mock_factory.return_value = _build_mock_adapter()
+
+    result = await analyze_images(image_sources=[])
+
+    assert "不能为空" in result[0].text
+    mock_factory.assert_not_called()

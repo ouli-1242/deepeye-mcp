@@ -9,9 +9,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
+from pathlib import Path
 
 import httpx
 from mcp.types import TextContent
@@ -303,3 +305,64 @@ async def extract_table(
         return [TextContent(type="text", text="表格提取失败：模型多次未返回有效表格 JSON")]
     except Exception as exc:
         return [TextContent(type="text", text=f"表格提取失败：{classify_error(exc, settings.vision_provider)[1]}")]
+
+
+def _source_name(source: str, index: int) -> str:
+    """从 image_source 提取展示名：本地路径取文件名，URL 取末段，data URI 用序号。"""
+    if source.startswith(("http://", "https://")):
+        return source.rstrip("/").split("/")[-1] or f"图片{index}"
+    if source.startswith("data:"):
+        return f"图片{index}"
+    return Path(source).name
+
+
+async def analyze_images(
+    image_sources: list[str],
+    prompt: str = _DEFAULT_DESCRIBE_PROMPT,
+    model: str | None = None,
+) -> list[TextContent]:
+    """批量分析多张图片：逐图结果 + 跨图对比汇总。
+
+    Args:
+        image_sources: 多张图片来源（本地路径 / URL / data URI）。
+        prompt: 应用于每张图的统一提示词。
+        model: 可选模型名称覆盖。
+
+    Returns:
+        含逐图结果与汇总的 ``list[TextContent]``。
+    """
+    if not image_sources:
+        return [TextContent(type="text", text="错误：image_sources 数组不能为空")]
+
+    provider = settings.vision_provider
+    try:
+        per_image: list[str | BaseException] = await asyncio.gather(
+            *[_run_vision(src, prompt, model) for src in image_sources],
+            return_exceptions=True,
+        )
+    except Exception as exc:
+        return [TextContent(type="text", text=f"批量分析失败：{classify_error(exc, provider)[1]}")]
+
+    lines: list[str] = []
+    for i, (src, result) in enumerate(zip(image_sources, per_image), 1):
+        name = _source_name(src, i)
+        if isinstance(result, BaseException):
+            text = classify_error(result, provider)[1]
+        else:
+            text = result
+        lines.append(f"[{i}] {name}: {text}")
+
+    per_image_text = "\n\n".join(lines)
+
+    # 汇总：逐图描述作为纯文本发给模型对比（不依赖多图支持）
+    summary_prompt = (
+        f"以下是同一 prompt 对多张图片的分析结果，请对比这些图片，"
+        f"总结彼此的异同点和关键结论。\n\n{per_image_text}"
+    )
+    try:
+        adapter = create_vision_adapter(model)
+        summary = await adapter.describe_text(summary_prompt)
+    except Exception as exc:
+        summary = f"（汇总失败：{classify_error(exc, provider)[1]}）"
+
+    return [TextContent(type="text", text=f"{per_image_text}\n\n【跨图汇总】\n{summary}")]
