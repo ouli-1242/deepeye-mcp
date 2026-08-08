@@ -27,6 +27,19 @@ def _get_client() -> httpx.AsyncClient:
     return _client
 
 
+def _extract_message(data: dict) -> dict | None:
+    """从 Chat Completions 响应中稳健提取首个 message。
+
+    部分后端偶发返回病态响应（``choices`` 缺失 / 为 None / 空数组），
+    结构异常时返回 None，由调用方按「空内容」降级处理。
+    """
+    try:
+        message = data["choices"][0]["message"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    return message if isinstance(message, dict) else None
+
+
 class OpenAIVisionAdapter(VisionAdapter):
     """基于 OpenAI Chat Completions 的视觉适配器。
 
@@ -118,8 +131,8 @@ class OpenAIVisionAdapter(VisionAdapter):
                 ) from exc
 
         data = response.json()
-        message = data["choices"][0]["message"]
-        content = (message.get("content") or "").strip()
+        message = _extract_message(data)
+        content = (message.get("content") or "").strip() if message else ""
         if content:
             return content
 
@@ -132,13 +145,13 @@ class OpenAIVisionAdapter(VisionAdapter):
                 last_exc = exc
                 break
             data = response.json()
-            message = data["choices"][0]["message"]
-            content = (message.get("content") or "").strip()
+            message = _extract_message(data)
+            content = (message.get("content") or "").strip() if message else ""
             if content:
                 return content
 
         # 重试仍空，回退到 reasoning_content（含完整答案，但可能带思考过程）
-        return (message.get("reasoning_content") or "").strip()
+        return (message.get("reasoning_content") or "").strip() if message else ""
 
     async def describe_text(self, prompt: str) -> str:
         """纯文本请求：messages 只有 user 文本，无图片。"""
@@ -158,8 +171,8 @@ class OpenAIVisionAdapter(VisionAdapter):
         response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
-        message = data["choices"][0]["message"]
-        content = (message.get("content") or "").strip()
+        message = _extract_message(data)
+        content = (message.get("content") or "").strip() if message else ""
         if not content:
-            content = (message.get("reasoning_content") or "").strip()
+            content = (message.get("reasoning_content") or "").strip() if message else ""
         return content

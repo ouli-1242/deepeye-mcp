@@ -12,6 +12,19 @@ from deepeye_mcp.config import settings
 from deepeye_mcp.vision.base import VisionAdapter
 
 
+def _extract_message(data: dict) -> dict | None:
+    """从 Chat Completions 响应中稳健提取首个 message。
+
+    部分后端偶发返回病态响应（``choices`` 缺失 / 为 None / 空数组），
+    结构异常时返回 None，由调用方按「空内容」降级处理。
+    """
+    try:
+        message = data["choices"][0]["message"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    return message if isinstance(message, dict) else None
+
+
 class CustomVisionAdapter(VisionAdapter):
     """基于自定义 OpenAI 兼容 Chat Completions 的视觉适配器。
 
@@ -104,11 +117,11 @@ class CustomVisionAdapter(VisionAdapter):
                 raise last_exc
 
         data = response.json()
-        message = data["choices"][0]["message"]
-        content = (message.get("content") or "").strip()
+        message = _extract_message(data)
+        content = (message.get("content") or "").strip() if message else ""
         # 推理模型 content 可能为空（答案在 reasoning_content）：回退兜底
         if not content:
-            content = (message.get("reasoning_content") or "").strip()
+            content = (message.get("reasoning_content") or "").strip() if message else ""
         return content
 
     async def describe_text(self, prompt: str) -> str:
@@ -131,8 +144,8 @@ class CustomVisionAdapter(VisionAdapter):
             response.raise_for_status()
 
         data = response.json()
-        message = data["choices"][0]["message"]
-        content = (message.get("content") or "").strip()
+        message = _extract_message(data)
+        content = (message.get("content") or "").strip() if message else ""
         if not content:
-            content = (message.get("reasoning_content") or "").strip()
+            content = (message.get("reasoning_content") or "").strip() if message else ""
         return content

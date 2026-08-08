@@ -14,6 +14,7 @@ import pytest
 from deepeye_mcp.config import settings
 from deepeye_mcp.vision.custom_adapter import CustomVisionAdapter
 from deepeye_mcp.vision.gemini_adapter import GeminiVisionAdapter
+from deepeye_mcp.vision.openai_adapter import OpenAIVisionAdapter
 
 
 # ---------------------------------------------------------------------------
@@ -316,3 +317,93 @@ async def test_gemini_describe_text(mock_client_cls):
     sent = call.kwargs["json"]
     assert sent["contents"][0]["parts"][0]["text"] == "请总结"
     assert "inline_data" not in str(sent["contents"])
+
+
+# ---------------------------------------------------------------------------
+# OpenAIVisionAdapter（病态响应防御）
+# ---------------------------------------------------------------------------
+
+
+def _make_openai_client(payload: dict) -> AsyncMock:
+    """构造 fake ``AsyncClient``，验证 openai adapter 的模块级单例调用。"""
+    fake_response = MagicMock()
+    fake_response.json.return_value = payload
+    fake_response.raise_for_status = MagicMock()
+    fake_client = AsyncMock()
+    fake_client.post = AsyncMock(return_value=fake_response)
+    return fake_client
+
+
+@patch("deepeye_mcp.vision.openai_adapter._get_client")
+async def test_openai_describe_choices_null_degraded(mock_get_client):
+    """choices 为 None 时应返回空串而不是抛 TypeError。"""
+    mock_get_client.return_value = _make_openai_client({"choices": None})
+
+    adapter = OpenAIVisionAdapter(
+        model="step-3.7-flash",
+        api_key="k",
+        base_url="https://example.com/v1",
+    )
+    text = await adapter.describe("iVBOR", "image/png", "prompt")
+
+    assert text == ""
+
+
+@patch("deepeye_mcp.vision.openai_adapter._get_client")
+async def test_openai_describe_choices_empty_array_degraded(mock_get_client):
+    """choices 为空数组时应返回空串而不是抛 IndexError。"""
+    mock_get_client.return_value = _make_openai_client({"choices": []})
+
+    adapter = OpenAIVisionAdapter(
+        model="step-3.7-flash",
+        api_key="k",
+        base_url="https://example.com/v1",
+    )
+    text = await adapter.describe("iVBOR", "image/png", "prompt")
+
+    assert text == ""
+
+
+@patch("deepeye_mcp.vision.openai_adapter._get_client")
+async def test_openai_describe_text_choices_null_degraded(mock_get_client):
+    """describe_text 遇到 choices=None 时返回空串而不是抛异常。"""
+    mock_get_client.return_value = _make_openai_client({"choices": None})
+
+    adapter = OpenAIVisionAdapter(
+        model="step-3.7-flash",
+        api_key="k",
+        base_url="https://example.com/v1",
+    )
+    text = await adapter.describe_text("请总结")
+
+    assert text == ""
+
+
+@patch("deepeye_mcp.vision.custom_adapter.httpx.AsyncClient")
+async def test_custom_describe_choices_null_degraded(mock_client_cls):
+    """custom 适配器 choices 为 None 时返回空串而非抛 TypeError。"""
+    mock_client_cls.return_value = _make_fake_client({"choices": None})
+
+    adapter = CustomVisionAdapter(
+        model="qwen-vl-max",
+        api_key="k",
+        base_url="https://example.com/v1",
+    )
+    text = await adapter.describe("iVBOR", "image/png", "prompt")
+
+    assert text == ""
+
+
+@patch("deepeye_mcp.vision.custom_adapter.httpx.AsyncClient")
+async def test_custom_describe_text_choices_empty_degraded(mock_client_cls):
+    """custom describe_text choices 为空数组时返回空串而非抛 IndexError。"""
+    mock_client_cls.return_value = _make_fake_client({"choices": []})
+
+    adapter = CustomVisionAdapter(
+        model="qwen-vl-max",
+        api_key="k",
+        base_url="https://example.com/v1",
+    )
+    text = await adapter.describe_text("请总结")
+
+    assert text == ""
