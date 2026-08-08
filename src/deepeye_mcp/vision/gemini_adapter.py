@@ -97,3 +97,23 @@ class GeminiVisionAdapter(VisionAdapter):
         except (KeyError, IndexError, TypeError):
             text = None
         return (text or "").strip()
+
+    async def describe_text(self, prompt: str) -> str:
+        """纯文本请求：generateContent parts 仅含 text，无 inline_data。"""
+        url = f"{self.base_url.rstrip('/')}/models/{self.model}:generateContent"
+        params = {"key": self.api_key}
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}]
+        }
+        headers = {"Content-Type": "application/json"}
+        timeout = settings.request_timeout
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(url, params=params, json=payload, headers=headers)
+            response.raise_for_status()
+
+        data = response.json()
+        try:
+            text = data["candidates"][0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError, TypeError):
+            text = None
+        return (text or "").strip()

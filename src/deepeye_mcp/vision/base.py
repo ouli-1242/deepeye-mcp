@@ -36,3 +36,15 @@ class VisionAdapter(ABC):
             视觉模型返回的文本结果。
         """
         ...
+
+    @abstractmethod
+    async def describe_text(self, prompt: str) -> str:
+        """纯文本请求（无图片），用于跨图汇总等场景。
+
+        Args:
+            prompt: 提示词。
+
+        Returns:
+            模型返回的文本。
+        """
+        ...

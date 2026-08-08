@@ -139,3 +139,27 @@ class OpenAIVisionAdapter(VisionAdapter):
 
         # 重试仍空，回退到 reasoning_content（含完整答案，但可能带思考过程）
         return (message.get("reasoning_content") or "").strip()
+
+    async def describe_text(self, prompt: str) -> str:
+        """纯文本请求：messages 只有 user 文本，无图片。"""
+        url = f"{self.base_url.rstrip('/')}/chat/completions"
+        payload = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": settings.max_tokens,
+        }
+        if settings.reasoning_effort:
+            payload["reasoning_effort"] = settings.reasoning_effort
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        client = _get_client()
+        response = await client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        message = data["choices"][0]["message"]
+        content = (message.get("content") or "").strip()
+        if not content:
+            content = (message.get("reasoning_content") or "").strip()
+        return content

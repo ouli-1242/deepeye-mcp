@@ -273,3 +273,46 @@ def test_custom_reads_settings_defaults(monkeypatch):
     assert adapter.model == "qwen-vl-max"
     assert adapter.api_key == "cfg-key"
     assert adapter.base_url == "https://cfg.example.com/v1"
+
+
+# ---------------------------------------------------------------------------
+# describe_text（纯文本请求）
+# ---------------------------------------------------------------------------
+
+
+@patch("deepeye_mcp.vision.custom_adapter.httpx.AsyncClient")
+async def test_custom_describe_text_no_image(mock_client_cls):
+    """describe_text 发送纯文本请求，payload 不含 image_url。"""
+    payload = {"choices": [{"message": {"content": "summary"}}]}
+    fake_client = _make_fake_client(payload)
+    mock_client_cls.return_value = fake_client
+
+    adapter = CustomVisionAdapter(
+        model="qwen-vl-max",
+        api_key="k",
+        base_url="https://example.com/v1",
+    )
+    text = await adapter.describe_text("请总结")
+
+    assert text == "summary"
+    call = fake_client.post.await_args
+    sent = call.kwargs["json"]
+    assert sent["messages"][0]["content"] == "请总结"
+    assert "image_url" not in str(sent["messages"])
+
+
+@patch("deepeye_mcp.vision.gemini_adapter.httpx.AsyncClient")
+async def test_gemini_describe_text(mock_client_cls):
+    """Gemini describe_text 走 generateContent，parts 仅含 text。"""
+    payload = {"candidates": [{"content": {"parts": [{"text": "summary"}]}}]}
+    fake_client = _make_fake_client(payload)
+    mock_client_cls.return_value = fake_client
+
+    adapter = GeminiVisionAdapter(model="gemini-2.0-flash", api_key="k")
+    text = await adapter.describe_text("请总结")
+
+    assert text == "summary"
+    call = fake_client.post.await_args
+    sent = call.kwargs["json"]
+    assert sent["contents"][0]["parts"][0]["text"] == "请总结"
+    assert "inline_data" not in str(sent["contents"])
