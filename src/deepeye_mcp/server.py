@@ -28,7 +28,14 @@ from mcp.types import (
 )
 
 from deepeye_mcp import __version__
-from deepeye_mcp.tools import analyze_layout, ask_about_image, describe_image, extract_text
+from deepeye_mcp.tools import (
+    analyze_images,
+    analyze_layout,
+    ask_about_image,
+    describe_image,
+    extract_table,
+    extract_text,
+)
 
 _TOOLS: list[Tool] = [
     Tool(
@@ -102,6 +109,31 @@ _TOOLS: list[Tool] = [
             "required": ["image_source"]
         }
     ),
+    Tool(
+        name="extract_table",
+        description="提取图片中的表格为 Markdown（截图/纸质/图表/合并单元格均支持）；复杂表格附带 JSON 结构。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "image_source": {"type": "string", "description": "图像来源：本地路径、http(s) URL 或 data URI。"},
+                "model": {"type": "string", "description": "可选模型名称覆盖。"},
+            },
+            "required": ["image_source"],
+        },
+    ),
+    Tool(
+        name="analyze_images",
+        description="批量分析多张图片：逐图返回结果 + 跨图对比汇总。",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "image_sources": {"type": "array", "items": {"type": "string"}, "description": "多张图片来源（本地路径 / URL / data URI）。"},
+                "prompt": {"type": "string", "description": "应用于每张图的统一提示词，可选。"},
+                "model": {"type": "string", "description": "可选模型名称覆盖。"},
+            },
+            "required": ["image_sources"],
+        },
+    ),
 ]
 
 
@@ -143,6 +175,17 @@ async def call_tool(
         )
     elif name == "analyze_layout":
         content = await analyze_layout(**arguments)
+    elif name == "extract_table":
+        content = await extract_table(
+            image_source=arguments["image_source"],
+            model=arguments.get("model"),
+        )
+    elif name == "analyze_images":
+        content = await analyze_images(
+            image_sources=arguments["image_sources"],
+            prompt=arguments.get("prompt"),
+            model=arguments.get("model"),
+        )
     else:
         raise ValueError(f"未知工具: {name}")
 

@@ -505,3 +505,17 @@ async def test_analyze_images_empty_list(mock_factory):
 
     assert "不能为空" in result[0].text
     mock_factory.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# server 注册
+# ---------------------------------------------------------------------------
+
+
+def test_server_tools_registered():
+    """server 应注册 extract_table 与 analyze_images。"""
+    from deepeye_mcp.server import _TOOLS
+
+    names = {t.name for t in _TOOLS}
+    assert "extract_table" in names
+    assert "analyze_images" in names
