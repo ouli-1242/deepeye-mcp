@@ -131,6 +131,29 @@ Server 通过 stdio 与 MCP 客户端通信，单独运行不会输出交互界�
 
 **返回**：JSON 字符串，包含 `layout_type`（布局类型）、`summary`（一句话描述）与 `elements`（元素树）；每个元素含 `type`、`text`、`position`（百分比坐标）、`children`，`detailed` 模式额外返回 `styles`。
 
+### `extract_table` — 图片转表格
+
+提取图片中的表格为 Markdown（截图数据表 / 纸质表格 / 图表 / 合并单元格均支持）。
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `image_source` | string | 是 | 本地路径 / http(s) URL / data URI |
+| `model` | string | 否 | 临时指定视觉模型 |
+
+**返回**：Markdown 表格；检测到合并单元格时追加 JSON 结构（含 rowspan/colspan）。
+
+### `analyze_images` — 批量图片分析
+
+对多张图片应用同一提示词，返回逐图结果 + 跨图对比汇总。
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `image_sources` | string[] | 是 | 多张图片来源（本地路径 / URL / data URI） |
+| `prompt` | string | 否 | 每张图统一提示词，默认详细描述 |
+| `model` | string | 否 | 临时指定视觉模型 |
+
+**返回**：`[序号] 来源: 结果` 列表 + `【跨图汇总】` 对比总结。
+
 ## 配置参考
 
 所有配置通过环境变量或 `.env` 文件加载（参考 `.env.example`）：
