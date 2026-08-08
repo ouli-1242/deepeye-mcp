@@ -41,8 +41,21 @@ class CustomVisionAdapter(VisionAdapter):
             )
         self.base_url = base
 
-    async def describe(self, image_b64: str, mime_type: str, prompt: str) -> str:
+    async def describe(
+        self,
+        image_b64: str,
+        mime_type: str,
+        prompt: str,
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        response_format: dict | None = None,
+    ) -> str:
         """调用自定义 OpenAI 兼容 Chat Completions 返回图像描述文本。
+
+        Args:
+            max_tokens: 输出 token 上限覆盖；None 时使用 ``settings.max_tokens``。
+            reasoning_effort: 推理深度覆盖；None 时用 ``settings.reasoning_effort``。
+            response_format: 输出格式约束（如 ``{"type": "json_object"}``）。
 
         Raises:
             httpx.HTTPStatusError: API 返回非 2xx 状态码时由
@@ -61,8 +74,11 @@ class CustomVisionAdapter(VisionAdapter):
                     ],
                 }
             ],
-            "max_tokens": settings.max_tokens,
+            "max_tokens": max_tokens or settings.max_tokens,
+            "reasoning_effort": reasoning_effort or settings.reasoning_effort,
         }
+        if response_format:
+            payload["response_format"] = response_format
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"

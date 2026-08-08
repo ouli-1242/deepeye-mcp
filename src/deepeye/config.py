@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     # ---------- 性能优化 ----------
     # 图片预处理：最大边长，超过则等比缩放后转 JPEG；0 表示禁用预处理
-    image_max_dim: int = 1536
+    image_max_dim: int = 2048
     # 结果缓存开关
     cache_enabled: bool = True
     # 缓存最大条目数（LRU 淘汰）
@@ -58,8 +58,10 @@ class Settings(BaseSettings):
     request_timeout: float = 120.0
     # 失败重试次数（仅对网络/超时错误重试，不对 4xx 重试）
     max_retries: int = 3
-    # 视觉模型返回的最大 token 数
-    max_tokens: int = 1024
+    # 视觉模型返回的最大 token 数（推理模型需更大预算，否则 content 被截断为空）
+    max_tokens: int = 4096
+    # 推理深度：low / medium / high（step 推理模型支持；越低越快）
+    reasoning_effort: str = "low"
 
 
 settings = Settings()

@@ -38,8 +38,21 @@ class GeminiVisionAdapter(VisionAdapter):
             else _DEFAULT_BASE_URL
         )
 
-    async def describe(self, image_b64: str, mime_type: str, prompt: str) -> str:
+    async def describe(
+        self,
+        image_b64: str,
+        mime_type: str,
+        prompt: str,
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        response_format: dict | None = None,
+    ) -> str:
         """调用 Gemini ``generateContent`` 返回图像描述文本。
+
+        Args:
+            max_tokens: 输出 token 上限覆盖；None 时使用 ``settings.max_tokens``。
+            reasoning_effort: 忽略（Gemini 无此参数）。
+            response_format: 忽略（Gemini 无此参数）。
 
         Raises:
             httpx.HTTPStatusError: API 返回非 2xx 状态码时由
@@ -57,6 +70,8 @@ class GeminiVisionAdapter(VisionAdapter):
                 }
             ]
         }
+        if max_tokens is not None:
+            payload["generationConfig"] = {"maxOutputTokens": max_tokens}
         headers = {"Content-Type": "application/json"}
 
         timeout = settings.request_timeout

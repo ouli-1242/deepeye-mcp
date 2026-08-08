@@ -13,6 +13,19 @@ from deepeye.vision.base import VisionAdapter
 
 _DEFAULT_BASE_URL = "https://api.openai.com/v1"
 
+# 推理模型（如 step_plan 端点）偶发 content 为空：重试次数
+_EMPTY_CONTENT_RETRIES = 1
+
+# 复用单个 AsyncClient，避免每次请求新建连接；MCP 服务常驻，连接可复用
+_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None:
+        _client = httpx.AsyncClient(timeout=settings.request_timeout)
+    return _client
+
 
 class OpenAIVisionAdapter(VisionAdapter):
     """基于 OpenAI Chat Completions 的视觉适配器。
@@ -35,8 +48,21 @@ class OpenAIVisionAdapter(VisionAdapter):
         base = base_url if base_url is not None else settings.openai_base_url
         self.base_url = base.strip() if base and base.strip() else _DEFAULT_BASE_URL
 
-    async def describe(self, image_b64: str, mime_type: str, prompt: str) -> str:
+    async def describe(
+        self,
+        image_b64: str,
+        mime_type: str,
+        prompt: str,
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        response_format: dict | None = None,
+    ) -> str:
         """调用 OpenAI Chat Completions 返回图像描述文本。
+
+        Args:
+            max_tokens: 输出 token 上限覆盖；None 时使用 ``settings.max_tokens``。
+            reasoning_effort: 推理深度覆盖；None 时用 ``settings.reasoning_effort``。
+            response_format: 输出格式约束（如 ``{"type": "json_object"}``）。
 
         Raises:
             httpx.HTTPStatusError: API 返回非 2xx 状态码时由
@@ -55,19 +81,22 @@ class OpenAIVisionAdapter(VisionAdapter):
                     ],
                 }
             ],
-            "max_tokens": settings.max_tokens,
+            "max_tokens": max_tokens or settings.max_tokens,
+            "reasoning_effort": reasoning_effort or settings.reasoning_effort,
         }
+        if response_format:
+            payload["response_format"] = response_format
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
+        client = _get_client()
         timeout = settings.request_timeout
         last_exc: Exception | None = None
         for attempt in range(settings.max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=timeout) as client:
-                    response = await client.post(url, json=payload, headers=headers)
-                    response.raise_for_status()
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
                 break
             except httpx.TimeoutException as exc:
                 last_exc = exc
@@ -86,4 +115,24 @@ class OpenAIVisionAdapter(VisionAdapter):
                 ) from exc
 
         data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
+        message = data["choices"][0]["message"]
+        content = (message.get("content") or "").strip()
+        if content:
+            return content
+
+        # content 为空：推理模型偶发把答案放到 reasoning_content，先重试拿到干净答案
+        for _ in range(_EMPTY_CONTENT_RETRIES):
+            try:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                last_exc = exc
+                break
+            data = response.json()
+            message = data["choices"][0]["message"]
+            content = (message.get("content") or "").strip()
+            if content:
+                return content
+
+        # 重试仍空，回退到 reasoning_content（含完整答案，但可能带思考过程）
+        return (message.get("reasoning_content") or "").strip()

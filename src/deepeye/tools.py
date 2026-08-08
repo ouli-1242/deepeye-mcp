@@ -39,14 +39,30 @@ JSON 格式：
 _LAYOUT_DETAILED_EXTRA = """
 额外为元素返回 styles 字段：{"background_color": "#hex", "text_color": "#hex", "font_size": "14px", "border_radius": "8px", "padding": "12px"}。"""
 
+# 模型输出不稳定，偶发不返回 JSON，调用重试次数
+_LAYOUT_RETRIES = 3
 
-async def _run_vision(image_source: str, prompt: str, model: str | None = None) -> str:
+
+async def _run_vision(
+    image_source: str,
+    prompt: str,
+    model: str | None = None,
+    use_cache: bool = True,
+    max_tokens: int | None = None,
+    reasoning_effort: str | None = None,
+    response_format: dict | None = None,
+) -> str:
     """内部统一流程：解析图像源 → 预处理 → 查缓存 → 调用适配器 → 写缓存。
 
     Args:
         image_source: 图像来源（本地路径 / URL / data URI）。
         prompt: 提示词。
         model: 可选模型名称覆盖。
+        use_cache: 是否读写缓存；False 时每次调用都请求视觉后端
+            （用于输出不稳定、需重试的场景）。
+        max_tokens: 输出 token 上限覆盖；None 时使用配置默认值。
+        reasoning_effort: 推理深度覆盖；None 时用配置默认。
+        response_format: 输出格式约束（如 ``{"type": "json_object"}``）。
 
     Returns:
         视觉模型返回的文本。
@@ -60,16 +76,23 @@ async def _run_vision(image_source: str, prompt: str, model: str | None = None) 
     effective_model = model if model is not None else ""
 
     # 开启缓存时先查缓存，命中则直接返回
-    if settings.cache_enabled:
+    if settings.cache_enabled and use_cache:
         cached = vision_cache.get(image_hash, prompt, effective_model)
         if cached is not None:
             return cached
 
     adapter = create_vision_adapter(model)
-    text = await adapter.describe(b64_data, mime_type, prompt)
+    text = await adapter.describe(
+        b64_data,
+        mime_type,
+        prompt,
+        max_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
+        response_format=response_format,
+    )
 
-    # 写入缓存供下次复用
-    if settings.cache_enabled:
+    # 写入缓存供下次复用；空结果不缓存，避免污染
+    if settings.cache_enabled and use_cache and text:
         vision_cache.set(image_hash, prompt, effective_model, text)
 
     return text
@@ -143,6 +166,30 @@ async def ask_about_image(
         return [TextContent(type="text", text=f"视觉问答失败：{exc}")]
 
 
+def _extract_json(text: str, require_key: str | None = None) -> str | None:
+    """从模型输出中稳健提取 JSON 对象。
+
+    模型可能返回"说明文字 + JSON"或把 JSON 包在代码块里。
+    扫描所有合法 JSON 对象：
+    - ``require_key`` 非空时，只返回含该键的对象（兼容不完整 JSON 里
+      嵌套元素先被解析到的情况）；
+    - 否则返回第一个合法对象。
+    """
+    # 去掉 markdown 代码围栏
+    text = re.sub(r"```(?:json)?\s*", "", text).strip()
+    decoder = json.JSONDecoder()
+    for i, ch in enumerate(text):
+        if ch != "{":
+            continue
+        try:
+            obj, _ = decoder.raw_decode(text, i)
+        except json.JSONDecodeError:
+            continue
+        if require_key is None or (isinstance(obj, dict) and require_key in obj):
+            return json.dumps(obj, ensure_ascii=False)
+    return None
+
+
 async def analyze_layout(
     image_source: str,
     detail: str = "basic",
@@ -167,14 +214,22 @@ async def analyze_layout(
         prompt = _LAYOUT_BASIC_PROMPT
 
     try:
-        text = await _run_vision(image_source, prompt, model)
-        # 模型可能返回 "说明文字 + JSON"，用正则容错提取
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match is None:
-            return [TextContent(type="text", text="布局分析失败：模型未返回有效 JSON")]
-        json_str = match.group(0)
-        # 校验 JSON 合法性，确保返回的是有效 JSON 字符串
-        parsed = json.loads(json_str)
-        return [TextContent(type="text", text=json.dumps(parsed, ensure_ascii=False))]
+        for _ in range(_LAYOUT_RETRIES + 1):
+            # 禁用缓存：模型输出不稳定，且散文结果可能污染缓存导致重试失效
+            # 布局 JSON 较大，用 8192 防截断；json_object 保证输出合法 JSON
+            text = await _run_vision(
+                image_source,
+                prompt,
+                model,
+                use_cache=False,
+                max_tokens=8192,
+                reasoning_effort="low",
+                response_format={"type": "json_object"},
+            )
+            # 模型可能返回 "说明文字 + JSON"，用稳健提取；必须含 layout_type 顶层对象
+            json_str = _extract_json(text, require_key="layout_type")
+            if json_str is not None:
+                return [TextContent(type="text", text=json_str)]
+        return [TextContent(type="text", text="布局分析失败：模型多次未返回有效 JSON")]
     except Exception as exc:
         return [TextContent(type="text", text=f"布局分析失败：{exc}")]
