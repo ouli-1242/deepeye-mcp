@@ -367,3 +367,40 @@ async def test_analyze_layout_prompt_detailed(mock_factory):
     call = mock_adapter.describe.await_args
     prompt = call.args[2]
     assert "styles" in prompt or "color" in prompt
+
+
+# ---------------------------------------------------------------------------
+# 错误分类接入
+# ---------------------------------------------------------------------------
+
+
+@patch("deepeye_mcp.tools.create_vision_adapter")
+async def test_describe_image_config_error_classified(mock_factory):
+    """配置缺失类错误应给出「配置错误」提示。"""
+    mock_adapter = MagicMock()
+    mock_adapter.describe = AsyncMock(
+        side_effect=ValueError("custom_base_url 未配置：使用 custom 视觉后端必须设置 CUSTOM_BASE_URL")
+    )
+    mock_factory.return_value = mock_adapter
+
+    result = await describe_image(image_source=_DATA_URI)
+
+    assert "配置错误" in result[0].text
+
+
+@patch("deepeye_mcp.tools.create_vision_adapter")
+async def test_analyze_layout_backend_error_has_status(mock_factory):
+    """后端 429 错误应给出限流提示。"""
+    import httpx
+
+    request = httpx.Request("POST", "https://example.com/v1/chat/completions")
+    response = httpx.Response(429, request=request)
+    mock_adapter = MagicMock()
+    mock_adapter.describe = AsyncMock(
+        side_effect=httpx.HTTPStatusError("限流", request=request, response=response)
+    )
+    mock_factory.return_value = mock_adapter
+
+    result = await analyze_layout(image_source=_DATA_URI)
+
+    assert "429" in result[0].text

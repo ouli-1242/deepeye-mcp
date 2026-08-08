@@ -18,6 +18,7 @@ from mcp.types import TextContent
 
 from deepeye_mcp.cache import vision_cache
 from deepeye_mcp.config import settings
+from deepeye_mcp.errors import classify_error
 from deepeye_mcp.image_utils import parse_image_source, preprocess_image
 from deepeye_mcp.vision import create_vision_adapter
 
@@ -118,7 +119,7 @@ async def describe_image(
         description = await _run_vision(image_source, prompt, model)
         return [TextContent(type="text", text=f"图片分析结果：\n{description}")]
     except Exception as exc:
-        return [TextContent(type="text", text=f"图片分析失败：{exc}")]
+        return [TextContent(type="text", text=f"图片分析失败：{classify_error(exc, settings.vision_provider)[1]}")]
 
 
 async def extract_text(
@@ -143,7 +144,7 @@ async def extract_text(
         text = await _run_vision(image_source, prompt)
         return [TextContent(type="text", text=text)]
     except Exception as exc:
-        return [TextContent(type="text", text=f"OCR 失败：{exc}")]
+        return [TextContent(type="text", text=f"OCR 失败：{classify_error(exc, settings.vision_provider)[1]}")]
 
 
 async def ask_about_image(
@@ -164,7 +165,7 @@ async def ask_about_image(
         answer = await _run_vision(image_source, prompt)
         return [TextContent(type="text", text=answer)]
     except Exception as exc:
-        return [TextContent(type="text", text=f"视觉问答失败：{exc}")]
+        return [TextContent(type="text", text=f"视觉问答失败：{classify_error(exc, settings.vision_provider)[1]}")]
 
 
 def _extract_json(text: str, require_key: str | None = None) -> str | None:
@@ -246,4 +247,4 @@ async def analyze_layout(
                 return [TextContent(type="text", text=json_str)]
         return [TextContent(type="text", text="布局分析失败：模型多次未返回有效 JSON")]
     except Exception as exc:
-        return [TextContent(type="text", text=f"布局分析失败：{exc}")]
+        return [TextContent(type="text", text=f"布局分析失败：{classify_error(exc, settings.vision_provider)[1]}")]
