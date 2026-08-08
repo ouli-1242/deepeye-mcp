@@ -23,6 +23,20 @@ pip install -e ".[dev]"
 
 要求：Python 3.11+，一个视觉模型 API Key。
 
+## 卸载
+
+```bash
+pip uninstall deepeye-mcp
+```
+
+若装在虚拟环境中，先激活再卸载：
+
+```bash
+.venv\Scripts\activate   # Windows
+source .venv/bin/activate  # macOS / Linux
+pip uninstall deepeye-mcp
+```
+
 ## 配置 API Key
 
 ```bash
