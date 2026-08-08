@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
-    { name = "Favio8", email = "Favio8@users.noreply.github.com" },
+    { name = "ouli-1242", email = "ouli1242@gmail.com" },
 ]
 keywords = ["mcp", "vision", "ocr", "openai", "llm", "model-context-protocol", "gemini", "deepseek", "visual-question-answering", "image-processing"]
 classifiers = [
@@ -34,10 +34,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Favio8/deepeye"
-Repository = "https://github.com/Favio8/deepeye"
-Issues = "https://github.com/Favio8/deepeye/issues"
-Changelog = "https://github.com/Favio8/deepeye/releases"
+Homepage = "https://github.com/ouli-1242/deepeye-mcp"
+Repository = "https://github.com/ouli-1242/deepeye-mcp"
+Issues = "https://github.com/ouli-1242/deepeye-mcp/issues"
+Changelog = "https://github.com/ouli-1242/deepeye-mcp/releases"
 
 [project.optional-dependencies]
 dev = [
@@ -46,7 +46,7 @@ dev = [
 ]
 
 [project.scripts]
-deepeye = "deepeye.server:run"
+deepeye = "deepeye_mcp.server:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]

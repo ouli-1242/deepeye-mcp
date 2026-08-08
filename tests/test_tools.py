@@ -1,6 +1,6 @@
-"""``deepeye.tools`` MCP 工具函数单元测试。
+"""``deepeye_mcp.tools`` MCP 工具函数单元测试。
 
-通过 ``unittest.mock.patch`` 替换 ``deepeye.tools.create_vision_adapter``，
+通过 ``unittest.mock.patch`` 替换 ``deepeye_mcp.tools.create_vision_adapter``，
 避免任何真实 API 调用；使用 data URI 作为图像源，避免本地文件/网络 IO。
 """
 
@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from mcp.types import TextContent
 
-from deepeye.cache import vision_cache
-from deepeye.config import settings
-from deepeye.tools import (
+from deepeye_mcp.cache import vision_cache
+from deepeye_mcp.config import settings
+from deepeye_mcp.tools import (
     _DEFAULT_DESCRIBE_PROMPT,
     _OCR_PROMPT,
     analyze_layout,
@@ -37,7 +37,7 @@ def _build_mock_adapter(return_value: str = "mocked description") -> MagicMock:
 # ---------------------------------------------------------------------------
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_describe_image_default_prompt(mock_factory):
     mock_adapter = _build_mock_adapter()
     mock_factory.return_value = mock_adapter
@@ -57,7 +57,7 @@ async def test_describe_image_default_prompt(mock_factory):
     assert "mocked description" in result[0].text
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_describe_image_custom_prompt(mock_factory):
     mock_adapter = _build_mock_adapter()
     mock_factory.return_value = mock_adapter
@@ -71,7 +71,7 @@ async def test_describe_image_custom_prompt(mock_factory):
     assert call.args[2] == "描述图表数据趋势"
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_describe_image_custom_model(mock_factory):
     """model 参数应透传给工厂函数。"""
     mock_adapter = _build_mock_adapter()
@@ -82,7 +82,7 @@ async def test_describe_image_custom_model(mock_factory):
     mock_factory.assert_called_once_with("gpt-4o-mini")
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_describe_image_result_format(mock_factory):
     mock_adapter = _build_mock_adapter(return_value="hello world")
     mock_factory.return_value = mock_adapter
@@ -97,7 +97,7 @@ async def test_describe_image_result_format(mock_factory):
 # ---------------------------------------------------------------------------
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_extract_text_default_no_language_hint(mock_factory):
     mock_adapter = _build_mock_adapter()
     mock_factory.return_value = mock_adapter
@@ -113,7 +113,7 @@ async def test_extract_text_default_no_language_hint(mock_factory):
     assert result[0].text == "mocked description"
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_extract_text_with_language_zh(mock_factory):
     mock_adapter = _build_mock_adapter()
     mock_factory.return_value = mock_adapter
@@ -124,7 +124,7 @@ async def test_extract_text_with_language_zh(mock_factory):
     assert call.args[2] == _OCR_PROMPT + " 优先识别语言：zh"
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_extract_text_with_language_en(mock_factory):
     mock_adapter = _build_mock_adapter()
     mock_factory.return_value = mock_adapter
@@ -140,7 +140,7 @@ async def test_extract_text_with_language_en(mock_factory):
 # ---------------------------------------------------------------------------
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_ask_about_image_prompt_assembly(mock_factory):
     mock_adapter = _build_mock_adapter()
     mock_factory.return_value = mock_adapter
@@ -164,7 +164,7 @@ async def test_ask_about_image_prompt_assembly(mock_factory):
 # ---------------------------------------------------------------------------
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_cache_enabled_second_call_hits_cache(mock_factory, monkeypatch):
     """开启缓存后，第二次相同调用应命中缓存，不再次调用适配器。"""
     monkeypatch.setattr(settings, "cache_enabled", True)
@@ -187,7 +187,7 @@ async def test_cache_enabled_second_call_hits_cache(mock_factory, monkeypatch):
     vision_cache.clear()
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_cache_disabled_calls_adapter_each_time(mock_factory, monkeypatch):
     """关闭缓存时，每次调用都应触发适配器。"""
     monkeypatch.setattr(settings, "cache_enabled", False)
@@ -204,7 +204,7 @@ async def test_cache_disabled_calls_adapter_each_time(mock_factory, monkeypatch)
     vision_cache.clear()
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_cache_different_prompt_does_not_hit(mock_factory, monkeypatch):
     """相同图片但不同 prompt 应产生不同 key，缓存不命中。"""
     monkeypatch.setattr(settings, "cache_enabled", True)
@@ -222,7 +222,7 @@ async def test_cache_different_prompt_does_not_hit(mock_factory, monkeypatch):
     vision_cache.clear()
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_cache_returns_cached_text_directly(mock_factory, monkeypatch):
     """缓存命中时应直接返回缓存文本（未经适配器重新生成）。"""
     monkeypatch.setattr(settings, "cache_enabled", True)
@@ -249,7 +249,7 @@ async def test_cache_returns_cached_text_directly(mock_factory, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_basic(mock_factory):
     """basic 模式：mock 返回纯 JSON，验证返回 list[TextContent] 且 text 是 JSON 字符串。"""
     mock_adapter = _build_mock_adapter(
@@ -269,7 +269,7 @@ async def test_analyze_layout_basic(mock_factory):
     assert parsed["elements"] == []
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_detailed(mock_factory):
     """detailed 模式：mock 返回含 styles 的 JSON，验证 prompt 中包含样式相关指令。"""
     mock_adapter = _build_mock_adapter(
@@ -295,7 +295,7 @@ async def test_analyze_layout_detailed(mock_factory):
     assert parsed["elements"][0]["styles"]["background_color"] == "#fff"
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_json_with_text(mock_factory):
     """模型返回 "说明文字 + JSON" 时应能提取出 JSON。"""
     mock_adapter = _build_mock_adapter(
@@ -313,7 +313,7 @@ async def test_analyze_layout_json_with_text(mock_factory):
     assert parsed["layout_type"] == "nav"
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_no_json(mock_factory):
     """模型未返回 JSON 时应返回包含 "未返回有效 JSON" 的错误文本。"""
     mock_adapter = _build_mock_adapter(return_value="我无法分析")
@@ -327,7 +327,7 @@ async def test_analyze_layout_no_json(mock_factory):
     assert "未返回有效 JSON" in result[0].text
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_exception(mock_factory):
     """适配器抛异常时应返回包含 "布局分析失败" 的友好错误文本。"""
     mock_adapter = MagicMock()
@@ -342,7 +342,7 @@ async def test_analyze_layout_exception(mock_factory):
     assert "布局分析失败" in result[0].text
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_prompt_basic(mock_factory):
     """basic 模式 prompt 不应包含样式相关字段（styles / color）。"""
     mock_adapter = _build_mock_adapter()
@@ -356,7 +356,7 @@ async def test_analyze_layout_prompt_basic(mock_factory):
     assert "color" not in prompt
 
 
-@patch("deepeye.tools.create_vision_adapter")
+@patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_prompt_detailed(mock_factory):
     """detailed 模式 prompt 应包含样式相关字段（styles / color）。"""
     mock_adapter = _build_mock_adapter()

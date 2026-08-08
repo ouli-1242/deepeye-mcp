@@ -1,4 +1,4 @@
-"""``deepeye.cache.VisionCache`` 单元测试。
+"""``deepeye_mcp.cache.VisionCache`` 单元测试。
 
 覆盖：命中 / 未命中 / TTL 过期 / LRU 淘汰 / clear / stats。
 通过注入可控时钟函数避免真实 ``time.sleep``。
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from deepeye.cache import VisionCache
+from deepeye_mcp.cache import VisionCache
 
 
 class _FakeClock:

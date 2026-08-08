@@ -1,4 +1,4 @@
-"""``deepeye.image_utils`` 单元测试。
+"""``deepeye_mcp.image_utils`` 单元测试。
 
 覆盖三种图像来源（本地文件 / 公网 URL / Base64 data URI）的解析逻辑，
 URL 下载通过 mock ``httpx.AsyncClient`` 避免真实网络 IO。
@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from deepeye.config import settings
-from deepeye.image_utils import (
+from deepeye_mcp.config import settings
+from deepeye_mcp.image_utils import (
     _parse_data_uri,
     load_image_as_base64,
     load_image_from_url_as_base64,
@@ -117,7 +117,7 @@ def _make_fake_client(content: bytes, content_type: str) -> AsyncMock:
     return fake_client
 
 
-@patch("deepeye.image_utils.httpx.AsyncClient")
+@patch("deepeye_mcp.image_utils.httpx.AsyncClient")
 async def test_load_image_from_url_as_base64(mock_client_cls):
     raw = b"fake-image-bytes"
     mock_client_cls.return_value = _make_fake_client(raw, "image/jpeg; charset=utf-8")
@@ -133,7 +133,7 @@ async def test_load_image_from_url_as_base64(mock_client_cls):
     )
 
 
-@patch("deepeye.image_utils.httpx.AsyncClient")
+@patch("deepeye_mcp.image_utils.httpx.AsyncClient")
 async def test_load_image_from_url_as_base64_missing_content_type(mock_client_cls):
     raw = b"more-bytes"
     mock_client_cls.return_value = _make_fake_client(raw, "")
@@ -146,7 +146,7 @@ async def test_load_image_from_url_as_base64_missing_content_type(mock_client_cl
     assert mime_type == "image/png"
 
 
-@patch("deepeye.image_utils.httpx.AsyncClient")
+@patch("deepeye_mcp.image_utils.httpx.AsyncClient")
 async def test_load_image_from_url_as_base64_raises_on_error_status(mock_client_cls):
     import httpx
 
@@ -188,7 +188,7 @@ async def test_parse_image_source_local(tmp_path: Path):
     assert mime_type == "image/png"
 
 
-@patch("deepeye.image_utils.httpx.AsyncClient")
+@patch("deepeye_mcp.image_utils.httpx.AsyncClient")
 async def test_parse_image_source_url(mock_client_cls):
     raw = b"webp-bytes"
     mock_client_cls.return_value = _make_fake_client(raw, "image/webp")

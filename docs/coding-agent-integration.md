@@ -6,7 +6,7 @@
 
 DeepEye 是一个 **stdio 类型的 MCP Server**，为纯文本模型（如 DeepSeek V4 Flash）提供视觉能力。它通过标准输入输出以 JSON-RPC 协议与 MCP 客户端通信，将图像理解、视觉推理等能力以 MCP 工具的形式暴露给宿主应用。DeepEye 提供四个核心工具：`describe_image`（图像描述）、`extract_text`（OCR 文字提取）、`ask_about_image`（视觉问答）、`analyze_layout`（UI 布局结构化分析，返回包含布局类型与元素树的 JSON，适合前端复刻）。
 
-启动命令：`deepeye`（`pip install -e .` 后注册的 console script 入口），等价于 `python -m deepeye.server`。配置通过环境变量传递（pydantic-settings 读取，环境变量优先于 `.env` 文件）。
+启动命令：`deepeye`（`pip install -e .` 后注册的 console script 入口），等价于 `python -m deepeye_mcp.server`。配置通过环境变量传递（pydantic-settings 读取，环境变量优先于 `.env` 文件）。
 
 **为什么要接入 coding agent**：当前主流的 coding agent / AI 编辑器（Claude Code、Cursor、Cline、Windsurf 等）均已原生支持 MCP。把 DeepEye 接入这些工具后，原本只能处理文本的 coding agent 就能在编码流程中调用视觉能力——例如分析 UI 截图、读取图表、理解设计稿、识别报错截图等，从而显著扩展纯文本模型在开发场景下的适用边界。由于 DeepEye 是 stdio 类型 server，各客户端的接入方式高度相似但配置文件位置、字段命名、JSON 结构存在差异，本文档对这些差异逐一梳理。
 
@@ -14,7 +14,7 @@ DeepEye 是一个 **stdio 类型的 MCP Server**，为纯文本模型（如 Deep
 
 | 项 | 值 |
 |---|---|
-| 启动命令 | `deepeye`（等价 `python -m deepeye.server`） |
+| 启动命令 | `deepeye`（等价 `python -m deepeye_mcp.server`） |
 | 传输方式 | stdio（标准输入输出 JSON-RPC） |
 | 配置方式 | 环境变量（优先于 `.env` 文件） |
 | Windows 可执行文件 | `d:\AAA_Favio_2026\AI_exploring\projects\deepeye-ai\deepeye\.venv\Scripts\deepeye.exe` |
@@ -739,7 +739,7 @@ DeepEye 使用 pydantic-settings 读取配置，**环境变量优先级高于 `.
 
 - DeepEye 的 `deepeye` 入口位于虚拟环境的 `Scripts`（Windows）或 `bin`（macOS/Linux）目录下，务必使用该虚拟环境中的可执行文件路径。
 - 多数 coding agent（尤其从 GUI 启动的 VS Code 类插件）不一定继承终端的 shell PATH，**强烈建议在 `command` 中使用绝对路径**而非依赖 `deepeye` 命令的 PATH 解析，可避免 "command not found" 类问题。
-- 也可直接用 `python -m deepeye.server` 形式，此时 `command` 为虚拟环境的 `python` / `python.exe` 绝对路径，`args` 为 `["-m", "deepeye.server"]`。
+- 也可直接用 `python -m deepeye_mcp.server` 形式，此时 `command` 为虚拟环境的 `python` / `python.exe` 绝对路径，`args` 为 `["-m", "deepeye_mcp.server"]`。
 
 ### 4. 字段命名差异速查
 

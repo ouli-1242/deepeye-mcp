@@ -18,7 +18,7 @@ from pathlib import Path
 import httpx
 from PIL import Image
 
-from deepeye.config import settings
+from deepeye_mcp.config import settings
 
 _DEFAULT_MIME = "image/png"
 

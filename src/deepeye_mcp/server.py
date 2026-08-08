@@ -27,8 +27,8 @@ from mcp.types import (
     Tool,
 )
 
-from deepeye import __version__
-from deepeye.tools import analyze_layout, ask_about_image, describe_image, extract_text
+from deepeye_mcp import __version__
+from deepeye_mcp.tools import analyze_layout, ask_about_image, describe_image, extract_text
 
 _TOOLS: list[Tool] = [
     Tool(

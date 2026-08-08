@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
-from deepeye.config import settings
-from deepeye.vision.base import VisionAdapter
-from deepeye.vision.custom_adapter import CustomVisionAdapter
-from deepeye.vision.gemini_adapter import GeminiVisionAdapter
-from deepeye.vision.openai_adapter import OpenAIVisionAdapter
+from deepeye_mcp.config import settings
+from deepeye_mcp.vision.base import VisionAdapter
+from deepeye_mcp.vision.custom_adapter import CustomVisionAdapter
+from deepeye_mcp.vision.gemini_adapter import GeminiVisionAdapter
+from deepeye_mcp.vision.openai_adapter import OpenAIVisionAdapter
 
 __all__ = [
     "VisionAdapter",

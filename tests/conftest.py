@@ -2,8 +2,8 @@
 
 import pytest
 
-from deepeye.cache import vision_cache
-from deepeye.config import settings
+from deepeye_mcp.cache import vision_cache
+from deepeye_mcp.config import settings
 
 
 @pytest.fixture(autouse=True)

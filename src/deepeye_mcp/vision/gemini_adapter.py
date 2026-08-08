@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import httpx
 
-from deepeye.config import settings
-from deepeye.vision.base import VisionAdapter
+from deepeye_mcp.config import settings
+from deepeye_mcp.vision.base import VisionAdapter
 
 _DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 

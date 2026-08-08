@@ -107,7 +107,7 @@ The `deepeye` command is available immediately — no need to clone the source.
 
 If you use an AI coding agent (Claude Code / Codex / Cursor / Cline), send it this prompt and let it handle installing and configuring for you:
 
-> Install the Python package `deepeye-mcp` (pip install deepeye-mcp), then walk me through configuring a vision model API key using the `.env.example` from https://github.com/Favio8/deepeye and wire it into my current MCP client.
+> Install the Python package `deepeye-mcp` (pip install deepeye-mcp), then walk me through configuring a vision model API key using the `.env.example` from https://github.com/ouli-1242/deepeye-mcp and wire it into my current MCP client.
 
 ### Prerequisites
 
@@ -117,7 +117,7 @@ If you use an AI coding agent (Claude Code / Codex / Cursor / Cline), send it th
 ### Install from source (Developers)
 
 ```bash
-git clone https://github.com/Favio8/deepeye.git
+git clone https://github.com/ouli-1242/deepeye-mcp.git
 cd deepeye
 
 # Recommended: isolated virtual environment
@@ -406,7 +406,7 @@ Tests cover image source parsing, the vision adapter factory, and prompt assembl
 
 See [Project Structure](#project-structure). Vision backends follow the strategy pattern; adding one is a matter of:
 
-1. Creating `src/deepeye/vision/xxx_adapter.py` that subclasses `VisionAdapter` and implements `describe`
+1. Creating `src/deepeye_mcp/vision/xxx_adapter.py` that subclasses `VisionAdapter` and implements `describe`
 2. Registering a new branch in the `vision/__init__.py` factory
 
 ---

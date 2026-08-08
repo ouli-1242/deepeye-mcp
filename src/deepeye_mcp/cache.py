@@ -4,7 +4,7 @@
 (图片哈希, 提示词, 模型) 三元组重复调用视觉后端。
 
 缓存操作均为内存操作，无需异步；通过模块级单例
-:data:`vision_cache` 在 :func:`deepeye.tools._run_vision` 中复用。
+:data:`vision_cache` 在 :func:`deepeye_mcp.tools._run_vision` 中复用。
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import time
 from collections import OrderedDict
 from typing import NamedTuple
 
-from deepeye.config import settings
+from deepeye_mcp.config import settings
 
 
 class _CacheStats(NamedTuple):

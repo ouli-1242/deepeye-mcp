@@ -107,7 +107,7 @@ pip install deepeye-mcp
 
 如果你用 Claude Code / Codex / Cursor / Cline 等 AI coding agent，直接把下面这段发给它，让它帮你完成安装与配置：
 
-> 安装 Python 包 `deepeye-mcp`（pip install deepeye-mcp），然后参照 https://github.com/Favio8/deepeye 的 `.env.example` 指导我配置视觉模型 API Key，并帮我接入到当前的 MCP 客户端。
+> 安装 Python 包 `deepeye-mcp`（pip install deepeye-mcp），然后参照 https://github.com/ouli-1242/deepeye-mcp 的 `.env.example` 指导我配置视觉模型 API Key，并帮我接入到当前的 MCP 客户端。
 
 ### 环境要求
 
@@ -117,7 +117,7 @@ pip install deepeye-mcp
 ### 从源码安装（开发者）
 
 ```bash
-git clone https://github.com/Favio8/deepeye.git
+git clone https://github.com/ouli-1242/deepeye-mcp.git
 cd deepeye
 
 # 推荐使用虚拟环境
@@ -406,7 +406,7 @@ pytest tests/ -v
 
 详见 [项目结构](#项目结构)。视觉后端采用策略模式，新增后端只需：
 
-1. 在 `src/deepeye/vision/` 下新增 `xxx_adapter.py`，继承 `VisionAdapter`，实现 `describe` 方法
+1. 在 `src/deepeye_mcp/vision/` 下新增 `xxx_adapter.py`，继承 `VisionAdapter`，实现 `describe` 方法
 2. 在 `vision/__init__.py` 的工厂函数中注册新分支
 
 ---

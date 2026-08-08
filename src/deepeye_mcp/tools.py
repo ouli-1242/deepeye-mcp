@@ -15,10 +15,10 @@ import re
 
 from mcp.types import TextContent
 
-from deepeye.cache import vision_cache
-from deepeye.config import settings
-from deepeye.image_utils import parse_image_source, preprocess_image
-from deepeye.vision import create_vision_adapter
+from deepeye_mcp.cache import vision_cache
+from deepeye_mcp.config import settings
+from deepeye_mcp.image_utils import parse_image_source, preprocess_image
+from deepeye_mcp.vision import create_vision_adapter
 
 _DEFAULT_DESCRIBE_PROMPT = (
     "分析这张图片，按以下维度分点描述：\n"
