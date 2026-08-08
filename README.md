@@ -154,13 +154,40 @@ GEMINI_MODEL=gemini-2.0-flash
 
 DeepEye 是标准 stdio MCP Server，在 MCP 配置中声明 `deepeye` 启动命令，并通过 `env` 字段传入视觉后端凭证。
 
-最小示例（Claude Code）：
+### 方式一：Claude Code 命令行（推荐）
 
 ```bash
-claude mcp add deepeye -- /path/to/deepeye/.venv/bin/deepeye
+claude mcp add deepeye -- /path/to/deepeye/.venv/bin/deepeye \
+  --env VISION_PROVIDER=openai \
+  --env OPENAI_API_KEY=sk-your-key \
+  --env OPENAI_MODEL=gpt-5.6-luna
 ```
 
-完整的 9 个客户端配置教程见 [接入 Coding Agent 指南](docs/coding-agent-integration.md)。
+Windows 下把命令路径换成 `.venv\Scripts\deepeye.exe`。
+
+### 方式二：配置文件 `.mcp.json`
+
+在项目根目录（或 Claude Code 起始目录）创建 `.mcp.json`：
+
+```json
+{
+  "mcpServers": {
+    "deepeye": {
+      "command": "D:/tools/deepeye/.venv/Scripts/deepeye.exe",
+      "env": {
+        "VISION_PROVIDER": "openai",
+        "OPENAI_API_KEY": "sk-your-key",
+        "OPENAI_BASE_URL": "https://your-compatible-service/v1",
+        "OPENAI_MODEL": "gpt-5.6-luna"
+      }
+    }
+  }
+}
+```
+
+保存后重启 Claude Code，`/mcp` 面板中应显示 `deepeye` 已连接。若显示 failed，运行 `.venv/Scripts/deepeye.exe` 查看报错。
+
+其他客户端（Cursor / Cline / Windsurf 等）的配置方式见 [接入 Coding Agent 指南](docs/coding-agent-integration.md)。
 
 > **opencode 用户**：安装 [opencode-easy-vision](https://github.com/devadathanmb/opencode-easy-vision) 插件后，粘贴图片会自动保存为临时文件并调用 DeepEye 分析。配置方法见 [接入指南的 opencode 章节](docs/coding-agent-integration.md#进阶粘贴图片自动调用-deepeyeopencode-easy-vision-插件)。
 
