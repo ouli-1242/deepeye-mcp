@@ -19,6 +19,7 @@ from deepeye_mcp.tools import (
     analyze_layout,
     ask_about_image,
     describe_image,
+    extract_table,
     extract_text,
 )
 
@@ -404,3 +405,48 @@ async def test_analyze_layout_backend_error_has_status(mock_factory):
     result = await analyze_layout(image_source=_DATA_URI)
 
     assert "429" in result[0].text
+
+
+# ---------------------------------------------------------------------------
+# extract_table
+# ---------------------------------------------------------------------------
+
+
+@patch("deepeye_mcp.tools.create_vision_adapter")
+async def test_extract_table_returns_markdown(mock_factory):
+    mock_adapter = _build_mock_adapter(
+        return_value='{"columns":2,"title":"t","rows":['
+        '{"cells":[{"text":"n","rowspan":1,"colspan":1},{"text":"p"}]},'
+        '{"cells":[{"text":"a","rowspan":1,"colspan":1},{"text":"1"}]}]}'
+    )
+    mock_factory.return_value = mock_adapter
+
+    result = await extract_table(image_source=_DATA_URI)
+
+    assert "| n | p |" in result[0].text
+    assert "| a | 1 |" in result[0].text
+
+
+@patch("deepeye_mcp.tools.create_vision_adapter")
+async def test_extract_table_merged_appends_json(mock_factory):
+    mock_adapter = _build_mock_adapter(
+        return_value='{"columns":1,"title":"","rows":['
+        '{"cells":[{"text":"A","rowspan":2,"colspan":1}]},'
+        '{"cells":[{"text":"B","rowspan":1,"colspan":1}]}]}'
+    )
+    mock_factory.return_value = mock_adapter
+
+    result = await extract_table(image_source=_DATA_URI)
+
+    assert "```json" in result[0].text
+    assert '"rowspan": 2' in result[0].text
+
+
+@patch("deepeye_mcp.tools.create_vision_adapter")
+async def test_extract_table_invalid_json_degraded(mock_factory):
+    mock_adapter = _build_mock_adapter(return_value="无法识别")
+    mock_factory.return_value = mock_adapter
+
+    result = await extract_table(image_source=_DATA_URI)
+
+    assert "表格提取失败" in result[0].text

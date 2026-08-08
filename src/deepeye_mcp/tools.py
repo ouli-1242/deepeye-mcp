@@ -20,6 +20,7 @@ from deepeye_mcp.cache import vision_cache
 from deepeye_mcp.config import settings
 from deepeye_mcp.errors import classify_error
 from deepeye_mcp.image_utils import parse_image_source, preprocess_image
+from deepeye_mcp.table import _TABLE_JSON_PROMPT, has_merged_cells, json_to_markdown
 from deepeye_mcp.vision import create_vision_adapter
 
 _DEFAULT_DESCRIBE_PROMPT = (
@@ -248,3 +249,57 @@ async def analyze_layout(
         return [TextContent(type="text", text="布局分析失败：模型多次未返回有效 JSON")]
     except Exception as exc:
         return [TextContent(type="text", text=f"布局分析失败：{classify_error(exc, settings.vision_provider)[1]}")]
+
+
+_TABLE_RETRIES = 3
+
+
+async def extract_table(
+    image_source: str,
+    model: str | None = None,
+) -> list[TextContent]:
+    """提取图片中的表格为 Markdown；复杂表格（合并单元格）附带 JSON 结构。
+
+    Args:
+        image_source: 图像来源（本地路径 / URL / data URI）。
+        model: 可选模型名称覆盖。
+
+    Returns:
+        含 Markdown 表格的 ``list[TextContent]``。
+    """
+    try:
+        for _ in range(_TABLE_RETRIES + 1):
+            # 先尝试 json_object；后端不支持时降级为普通请求
+            try:
+                text = await _run_vision(
+                    image_source,
+                    _TABLE_JSON_PROMPT,
+                    model,
+                    use_cache=False,
+                    max_tokens=8192,
+                    reasoning_effort="low",
+                    response_format={"type": "json_object"},
+                )
+            except httpx.HTTPStatusError:
+                text = await _run_vision(
+                    image_source,
+                    _TABLE_JSON_PROMPT,
+                    model,
+                    use_cache=False,
+                    max_tokens=8192,
+                    reasoning_effort=None,
+                    response_format=None,
+                )
+            json_str = _extract_json(text, require_key="rows")
+            if json_str is not None:
+                parsed = json.loads(json_str)
+                md = json_to_markdown(parsed)
+                if has_merged_cells(parsed):
+                    return [TextContent(
+                        type="text",
+                        text=f"{md}\n\n（检测到合并单元格，附 JSON 完整结构）\n```json\n{json_str}\n```",
+                    )]
+                return [TextContent(type="text", text=md)]
+        return [TextContent(type="text", text="表格提取失败：模型多次未返回有效表格 JSON")]
+    except Exception as exc:
+        return [TextContent(type="text", text=f"表格提取失败：{classify_error(exc, settings.vision_provider)[1]}")]
