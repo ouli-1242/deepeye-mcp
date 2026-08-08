@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import io
+import socket
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -103,6 +104,10 @@ def test_parse_data_uri_empty_data_raises():
 # ---------------------------------------------------------------------------
 
 
+# 公网 IP，用于 mock DNS 解析（避免测试依赖真实 DNS）
+_PUBLIC_IP = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+
+
 def _make_fake_client(content: bytes, content_type: str) -> AsyncMock:
     """构造一个 fake ``httpx.AsyncClient``，返回指定响应内容。"""
     fake_response = MagicMock()
@@ -117,8 +122,11 @@ def _make_fake_client(content: bytes, content_type: str) -> AsyncMock:
     return fake_client
 
 
+@patch(
+    "deepeye_mcp.image_utils.socket.getaddrinfo", return_value=_PUBLIC_IP
+)
 @patch("deepeye_mcp.image_utils.httpx.AsyncClient")
-async def test_load_image_from_url_as_base64(mock_client_cls):
+async def test_load_image_from_url_as_base64(mock_client_cls, mock_getaddrinfo):
     raw = b"fake-image-bytes"
     mock_client_cls.return_value = _make_fake_client(raw, "image/jpeg; charset=utf-8")
 
@@ -133,8 +141,11 @@ async def test_load_image_from_url_as_base64(mock_client_cls):
     )
 
 
+@patch(
+    "deepeye_mcp.image_utils.socket.getaddrinfo", return_value=_PUBLIC_IP
+)
 @patch("deepeye_mcp.image_utils.httpx.AsyncClient")
-async def test_load_image_from_url_as_base64_missing_content_type(mock_client_cls):
+async def test_load_image_from_url_as_base64_missing_content_type(mock_client_cls, mock_getaddrinfo):
     raw = b"more-bytes"
     mock_client_cls.return_value = _make_fake_client(raw, "")
 
@@ -146,8 +157,11 @@ async def test_load_image_from_url_as_base64_missing_content_type(mock_client_cl
     assert mime_type == "image/png"
 
 
+@patch(
+    "deepeye_mcp.image_utils.socket.getaddrinfo", return_value=_PUBLIC_IP
+)
 @patch("deepeye_mcp.image_utils.httpx.AsyncClient")
-async def test_load_image_from_url_as_base64_raises_on_error_status(mock_client_cls):
+async def test_load_image_from_url_as_base64_raises_on_error_status(mock_client_cls, mock_getaddrinfo):
     import httpx
 
     fake_response = MagicMock()
@@ -164,6 +178,64 @@ async def test_load_image_from_url_as_base64_raises_on_error_status(mock_client_
 
     with pytest.raises(httpx.HTTPStatusError):
         await load_image_from_url_as_base64("https://example.com/500.png")
+
+
+# ---------------------------------------------------------------------------
+# SSRF 防护 + 大小上限
+# ---------------------------------------------------------------------------
+
+
+async def _assert_ssrf_blocked(host: str, ip: str, url: str) -> None:
+    """断言解析到 ``ip`` 的 ``host`` 被 SSRF 防护拒绝。"""
+    with patch(
+        "deepeye_mcp.image_utils.socket.getaddrinfo",
+        return_value=[(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 0))],
+    ):
+        with pytest.raises(ValueError, match="SSRF"):
+            await load_image_from_url_as_base64(url)
+
+
+async def test_url_rejects_localhost_ip():
+    await _assert_ssrf_blocked("example.com", "127.0.0.1", "https://example.com/x.png")
+
+
+async def test_url_rejects_private_ip():
+    await _assert_ssrf_blocked("intranet", "10.0.0.1", "http://intranet/secret")
+
+
+async def test_url_rejects_link_local_metadata():
+    await _assert_ssrf_blocked(
+        "metadata", "169.254.169.254", "http://metadata/latest/meta-data"
+    )
+
+
+async def test_url_rejects_loopback_hostname():
+    await _assert_ssrf_blocked("localhost", "127.0.0.1", "http://localhost:11434/v1")
+
+
+async def test_allow_private_urls_bypasses_ssrf(monkeypatch):
+    """allow_private_urls=True 时跳过 SSRF 校验（仅本地调试）。"""
+    monkeypatch.setattr(settings, "allow_private_urls", True)
+    with patch("deepeye_mcp.image_utils.httpx.AsyncClient") as mock_client_cls:
+        mock_client_cls.return_value = _make_fake_client(b"x", "image/png")
+        b64_data, mime_type = await load_image_from_url_as_base64(
+            "http://127.0.0.1/img.png"
+        )
+
+    assert b64_data == base64.b64encode(b"x").decode("ascii")
+    assert mime_type == "image/png"
+
+
+async def test_url_too_large_rejected(monkeypatch):
+    """下载内容超过 max_image_bytes 上限时应拒绝。"""
+    monkeypatch.setattr(settings, "max_image_bytes", 10)
+    with patch(
+        "deepeye_mcp.image_utils.socket.getaddrinfo", return_value=_PUBLIC_IP
+    ):
+        with patch("deepeye_mcp.image_utils.httpx.AsyncClient") as mock_client_cls:
+            mock_client_cls.return_value = _make_fake_client(b"x" * 100, "image/png")
+            with pytest.raises(ValueError, match="大小上限"):
+                await load_image_from_url_as_base64("https://example.com/big.png")
 
 
 # ---------------------------------------------------------------------------
@@ -188,8 +260,11 @@ async def test_parse_image_source_local(tmp_path: Path):
     assert mime_type == "image/png"
 
 
+@patch(
+    "deepeye_mcp.image_utils.socket.getaddrinfo", return_value=_PUBLIC_IP
+)
 @patch("deepeye_mcp.image_utils.httpx.AsyncClient")
-async def test_parse_image_source_url(mock_client_cls):
+async def test_parse_image_source_url(mock_client_cls, mock_getaddrinfo):
     raw = b"webp-bytes"
     mock_client_cls.return_value = _make_fake_client(raw, "image/webp")
 

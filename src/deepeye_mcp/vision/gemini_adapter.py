@@ -92,4 +92,8 @@ class GeminiVisionAdapter(VisionAdapter):
                 raise last_exc
 
         data = response.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        try:
+            text = data["candidates"][0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError, TypeError):
+            text = None
+        return (text or "").strip()

@@ -214,7 +214,9 @@ async def test_custom_describe_payload_and_url(mock_client_cls):
 
     sent_payload = call.kwargs.get("json")
     assert sent_payload["model"] == "qwen-vl-max"
-    assert sent_payload["max_tokens"] == 1024
+    assert sent_payload["max_tokens"] == settings.max_tokens
+    # reasoning_effort 默认不发送（部分后端不支持该参数）
+    assert "reasoning_effort" not in sent_payload
     messages = sent_payload["messages"]
     assert len(messages) == 1
     assert messages[0]["role"] == "user"

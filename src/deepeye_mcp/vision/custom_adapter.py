@@ -74,9 +74,12 @@ class CustomVisionAdapter(VisionAdapter):
                     ],
                 }
             ],
-            "max_tokens": max_tokens or settings.max_tokens,
-            "reasoning_effort": reasoning_effort or settings.reasoning_effort,
+            "max_tokens": max_tokens if max_tokens is not None else settings.max_tokens,
         }
+        # reasoning_effort 仅在显式配置时发送：部分后端不支持该参数
+        effort = reasoning_effort or settings.reasoning_effort
+        if effort:
+            payload["reasoning_effort"] = effort
         if response_format:
             payload["response_format"] = response_format
         headers = {"Content-Type": "application/json"}
@@ -101,4 +104,9 @@ class CustomVisionAdapter(VisionAdapter):
                 raise last_exc
 
         data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
+        message = data["choices"][0]["message"]
+        content = (message.get("content") or "").strip()
+        # 推理模型 content 可能为空（答案在 reasoning_content）：回退兜底
+        if not content:
+            content = (message.get("reasoning_content") or "").strip()
+        return content

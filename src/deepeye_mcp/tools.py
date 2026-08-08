@@ -13,6 +13,7 @@ import hashlib
 import json
 import re
 
+import httpx
 from mcp.types import TextContent
 
 from deepeye_mcp.cache import vision_cache
@@ -216,16 +217,29 @@ async def analyze_layout(
     try:
         for _ in range(_LAYOUT_RETRIES + 1):
             # 禁用缓存：模型输出不稳定，且散文结果可能污染缓存导致重试失效
-            # 布局 JSON 较大，用 8192 防截断；json_object 保证输出合法 JSON
-            text = await _run_vision(
-                image_source,
-                prompt,
-                model,
-                use_cache=False,
-                max_tokens=8192,
-                reasoning_effort="low",
-                response_format={"type": "json_object"},
-            )
+            # 布局 JSON 较大，用 8192 防截断；优先 json_object 保证输出合法 JSON
+            try:
+                text = await _run_vision(
+                    image_source,
+                    prompt,
+                    model,
+                    use_cache=False,
+                    max_tokens=8192,
+                    reasoning_effort="low",
+                    response_format={"type": "json_object"},
+                )
+            except httpx.HTTPStatusError:
+                # 后端不支持 response_format / reasoning_effort（如部分 vLLM/Ollama）：
+                # 降级为普通请求，靠 _extract_json 从输出中提取 JSON
+                text = await _run_vision(
+                    image_source,
+                    prompt,
+                    model,
+                    use_cache=False,
+                    max_tokens=8192,
+                    reasoning_effort=None,
+                    response_format=None,
+                )
             # 模型可能返回 "说明文字 + JSON"，用稳健提取；必须含 layout_type 顶层对象
             json_str = _extract_json(text, require_key="layout_type")
             if json_str is not None:

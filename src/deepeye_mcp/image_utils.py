@@ -12,8 +12,11 @@ from __future__ import annotations
 
 import base64
 import io
+import ipaddress
 import mimetypes
+import socket
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 from PIL import Image
@@ -21,6 +24,55 @@ from PIL import Image
 from deepeye_mcp.config import settings
 
 _DEFAULT_MIME = "image/png"
+
+
+def _is_public_ip(ip: str) -> bool:
+    """判断 IP 是否为公网地址。
+
+    内网 / 回环 / 链路本地 / 保留 / 组播 / 未指定地址均视为非公网。
+    """
+    try:
+        addr = ipaddress.ip_address(ip.split("%")[0])
+    except ValueError:
+        return False
+    return not (
+        addr.is_private
+        or addr.is_loopback
+        or addr.is_link_local
+        or addr.is_reserved
+        or addr.is_multicast
+        or addr.is_unspecified
+    )
+
+
+def _ensure_public_target(url: str) -> str:
+    """校验 URL 指向公网地址，防止 SSRF。
+
+    解析主机名到 IP，任一解析结果落在内网/保留地址即拒绝；
+    ``settings.allow_private_urls=True`` 时跳过校验（仅本地调试）。
+
+    Raises:
+        ValueError: URL 无法解析或解析到非公网地址时抛出。
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("URL 缺少主机名")
+    if settings.allow_private_urls:
+        return hostname
+
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as exc:
+        raise ValueError(f"无法解析主机: {hostname}") from exc
+
+    for info in infos:
+        ip = info[4][0]
+        if not _is_public_ip(ip):
+            raise ValueError(
+                f"拒绝访问非公网地址（SSRF 防护）: {hostname} ({ip})"
+            )
+    return hostname
 
 
 def load_image_as_base64(path: str) -> tuple[str, str]:
@@ -57,11 +109,18 @@ async def load_image_from_url_as_base64(url: str) -> tuple[str, str]:
         ``(base64_data, mime_type)`` 元组。MIME 从响应 ``Content-Type``
         推断（取 ``;`` 之前部分），无法推断时默认 ``image/png``。
     """
-    async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
+    async with httpx.AsyncClient(
+        follow_redirects=True, timeout=settings.request_timeout
+    ) as client:
+        _ensure_public_target(url)
         response = await client.get(url)
         response.raise_for_status()
 
     data = response.content
+    if len(data) > settings.max_image_bytes:
+        raise ValueError(
+            f"图片超过大小上限: {len(data)} > {settings.max_image_bytes} bytes"
+        )
     b64_data = base64.b64encode(data).decode("ascii")
     content_type = response.headers.get("Content-Type", "")
     mime_type = content_type.split(";")[0].strip() if content_type else ""

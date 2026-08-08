@@ -147,13 +147,16 @@ Server 通过 stdio 与 MCP 客户端通信，单独运行不会输出交互界�
 | `CUSTOM_BASE_URL` | — | 自定义服务接口地址 |
 | `CUSTOM_MODEL` | `qwen-vl-max` | 自定义模型名称 |
 | `OCR_BACKEND` | `openai` | `extract_text` 实际使用的视觉后端 |
-| `IMAGE_MAX_DIM` | `1536` | 图片预处理最大边长（像素），超过则等比缩放转 JPEG；`0` 禁用预处理 |
+| `IMAGE_MAX_DIM` | `2048` | 图片预处理最大边长（像素），超过则等比缩放转 JPEG；`0` 禁用预处理 |
 | `CACHE_ENABLED` | `true` | 是否开启视觉结果缓存（LRU + TTL） |
 | `CACHE_MAX_SIZE` | `128` | 缓存最大条目数 |
 | `CACHE_TTL` | `3600` | 缓存存活秒数 |
 | `REQUEST_TIMEOUT` | `120` | 视觉后端 HTTP 请求超时（秒） |
 | `MAX_RETRIES` | `3` | 失败重试次数（仅对网络/超时错误重试） |
-| `MAX_TOKENS` | `1024` | 视觉模型返回的最大 token 数 |
+| `MAX_TOKENS` | `4096` | 视觉模型返回的最大 token 数 |
+| `REASONING_EFFORT` | 空 | 推理深度 `low`/`medium`/`high`；留空不发送该参数（部分后端不支持） |
+| `MAX_IMAGE_BYTES` | `20971520` | URL 图片下载大小上限（字节），超过拒绝 |
+| `ALLOW_PRIVATE_URLS` | `false` | 是否允许访问内网/保留地址（SSRF 防护，默认禁止；仅本地调试设为 `true`） |
 
 用兼容服务的例子（阿里通义 Qwen-VL）：
 

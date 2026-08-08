@@ -60,8 +60,14 @@ class Settings(BaseSettings):
     max_retries: int = 3
     # 视觉模型返回的最大 token 数（推理模型需更大预算，否则 content 被截断为空）
     max_tokens: int = 4096
-    # 推理深度：low / medium / high（step 推理模型支持；越低越快）
-    reasoning_effort: str = "low"
+    # 推理深度：low / medium / high；留空则不发送该参数（部分后端不支持）
+    reasoning_effort: str = ""
+
+    # ---------- 图片 URL 下载 ----------
+    # 下载图片的最大字节数，超过则拒绝（防止内存耗尽）
+    max_image_bytes: int = 20 * 1024 * 1024
+    # 是否允许访问内网/保留地址（默认禁止，防止 SSRF；仅本地调试时设为 true）
+    allow_private_urls: bool = False
 
 
 settings = Settings()
