@@ -24,8 +24,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # 视觉后端提供者：openai / gemini / custom
-    vision_provider: str = "openai"
+    # 视觉后端提供者：openai / gemini / anthropic / responses / gemini-interactions
+    vision_provider: Literal[
+        "openai", "gemini", "anthropic", "responses", "gemini-interactions"
+    ] = "openai"
 
     # ---------- OpenAI 兼容后端 ----------
     openai_api_key: str = ""
@@ -36,14 +38,23 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-1.5-pro"
 
-    # ---------- 自定义 OpenAI 兼容后端（预留） ----------
-    custom_api_key: str = ""
-    custom_base_url: str = ""
-    custom_model: str = "qwen-vl-max"
+    # ---------- Anthropic 后端 ----------
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-5"
+    anthropic_base_url: str = "https://api.anthropic.com/v1"
+
+    # ---------- OpenAI Responses API 后端 ----------
+    # 走 OpenAI 官方 Responses 协议（/v1/responses），主要用于 OpenAI 官方
+    # 及真正实现该协议的端点。第三方 OpenAI 兼容厂商多用 Chat Completions。
+    responses_api_key: str = ""
+    responses_model: str = "gpt-5.6"
+    responses_base_url: str = "https://api.openai.com/v1"
 
     # ---------- OCR 后端 ----------
-    # extract_text 工具实际使用的视觉后端：openai / gemini / custom
-    ocr_backend: Literal["openai", "gemini", "custom"] = "openai"
+    # extract_text 工具实际使用的视觉后端：openai / gemini / anthropic / responses / gemini-interactions
+    ocr_backend: Literal[
+        "openai", "gemini", "anthropic", "responses", "gemini-interactions"
+    ] = "openai"
 
     # ---------- 性能优化 ----------
     # 图片预处理：最大边长，超过则等比缩放后转 JPEG；0 表示禁用预处理

@@ -24,13 +24,14 @@ DeepEye 支持的环境变量：
 
 | 环境变量 | 说明 | 默认值 |
 |---|---|---|
-| `VISION_PROVIDER` | 视觉后端：`openai` / `gemini` / `custom` | `openai` |
+| `VISION_PROVIDER` | 视觉后端：`openai` / `gemini` / `gemini-interactions` / `anthropic` / `responses` | `openai` |
 | `OPENAI_API_KEY` | OpenAI 视觉模型 API Key | - |
-| `OPENAI_MODEL` | OpenAI 视觉模型名 | `gpt-5.6-luna` |
-| `OPENAI_BASE_URL` | 可选，自定义 OpenAI 兼容端点 | - |
-| `GEMINI_API_KEY` / `GEMINI_MODEL` | Gemini 后端 | - |
-| `CUSTOM_API_KEY` / `CUSTOM_BASE_URL` / `CUSTOM_MODEL` | 自定义 OpenAI 兼容后端 | - |
-| `IMAGE_MAX_DIM` | 图片预处理最大边长（像素），超过则等比缩放转 JPEG。`0` 禁用预处理 | `1536` |
+| `OPENAI_MODEL` | OpenAI 视觉模型名（须支持图片输入） | `gpt-5.6-luna` |
+| `OPENAI_BASE_URL` | OpenAI 兼容端点。**任意兼容厂商都能用**，如阿里通义 `https://dashscope.aliyuncs.com/compatible-mode/v1`、智谱 GLM `https://open.bigmodel.cn/api/paas/v4`、阶跃星辰 `https://api.stepfun.com/step_plan/v1`；留空用官方 | - |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Gemini 后端（`gemini` generateContent / `gemini-interactions` 新版 API，复用同一组变量） | - |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` / `ANTHROPIC_BASE_URL` | Anthropic Claude 原生 Messages API（默认 `claude-sonnet-5`） | - |
+| `RESPONSES_API_KEY` / `RESPONSES_MODEL` / `RESPONSES_BASE_URL` | OpenAI 官方 Responses API（默认 `gpt-5.6`） | - |
+| `IMAGE_MAX_DIM` | 图片预处理最大边长（像素），超过则等比缩放转 JPEG。`0` 禁用预处理 | `2048` |
 | `CACHE_ENABLED` | 是否开启视觉结果缓存（LRU + TTL） | `true` |
 | `CACHE_MAX_SIZE` | 缓存最大条目数 | `128` |
 | `CACHE_TTL` | 缓存存活秒数 | `3600` |

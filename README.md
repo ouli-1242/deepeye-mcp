@@ -47,6 +47,136 @@ OPENAI_MODEL=gpt-5.6-luna
 # OPENAI_BASE_URL=https://your-compatible-service/v1
 ```
 
+### 核心机制：任意 OpenAI 兼容厂商都能用
+
+DeepEye 的视觉后端走的是 **OpenAI Chat Completions 协议**（`/chat/completions` 接口 + `image_url` 传图）。
+这意味着**任何提供 OpenAI 兼容接口的厂商模型都能接入**——不限于 GPT。只需要改 3 个环境变量：
+
+| 变量 | 作用 |
+|------|------|
+| `OPENAI_API_KEY` | 该厂商平台申请的 API Key |
+| `OPENAI_MODEL` | 该厂商的视觉模型名（要支持图片输入） |
+| `OPENAI_BASE_URL` | 该厂商的 OpenAI 兼容端点地址（留空则用 OpenAI 官方 `https://api.openai.com/v1`） |
+
+**选择模型的关键**：模型必须支持**图片/视觉输入**（多模态模型）。纯文本模型（如 DeepSeek-V3、普通 GPT-4）无法看图片，会报错或忽略图片。
+
+### 各厂商 base_url 参考（均已验证端点可达）
+
+| 厂商 | `OPENAI_BASE_URL` | 视觉模型示例 |
+|------|-------------------|--------------|
+| OpenAI 官方 | `https://api.openai.com/v1`（留空默认） | `gpt-4o`、`gpt-5.6-luna` |
+| 阿里通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-vl-max`、`qwen-vl-plus` |
+| 阶跃星辰 | `https://api.stepfun.com/step_plan/v1` | `step-3.7-flash` 等支持视觉的模型 |
+| 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-4v-plus`、`glm-4v-flash` |
+| Moonshot Kimi | `https://api.moonshot.cn/v1` | 支持视觉的 moonshot 模型 |
+| 深度求索 DeepSeek | `https://api.deepseek.com/v1` | 需确认支持视觉的最新模型 |
+| 本地 Ollama | `http://127.0.0.1:11434/v1` | `llava`、`qwen2.5vl` 等本地多模态模型 |
+| 本地 vLLM | `http://127.0.0.1:8000/v1` | 部署的多模态模型 |
+
+> **本地模型（Ollama/vLLM）说明**：视觉后端的 base_url 是**用户配置的信任端点**，
+> 不经过 SSRF 校验，所以本地 `127.0.0.1` 地址可直接用，无需开启 `ALLOW_PRIVATE_URLS`
+> （该选项只影响「图片 URL 下载」的防护，不影响 API 端点）。
+
+配置示例（用阿里通义，其他厂商同理只改 3 个值）：
+
+```dotenv
+VISION_PROVIDER=openai
+OPENAI_API_KEY=sk-your-dashscope-key
+OPENAI_MODEL=qwen-vl-max
+OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+```
+
+### 切换后端类型
+
+DeepEye 支持五类视觉后端，用 `VISION_PROVIDER` 切换：
+
+| `VISION_PROVIDER` | 说明 |
+|-------------------|------|
+| `openai` | OpenAI + 任意 OpenAI 兼容厂商（默认，推荐）。本地模型也走这个（改 base_url） |
+| `gemini` | Google Gemini 原生 API（`generateContent`） |
+| `gemini-interactions` | Google Gemini 新版 `Interactions API`（新模型/新能力首发地） |
+| `anthropic` | Anthropic Claude 原生 Messages API（高质量视觉档） |
+| `responses` | OpenAI 官方 Responses API（gpt-5 系列） |
+
+### 协议排名与优缺点
+
+> 排名基于「个人自用 + 大陆网络 + OpenAI 兼容端点为主」的典型场景
+> （通义 / 智谱 / 阶跃 / 本地 Ollama）。各协议能力本身差异不大——模型是「内容」、
+> 协议是「信封」；真正的差异在生态广度、大陆可达性、结构化输出保障。
+
+| 排名 | Provider | 协议 | 一句话定位 |
+|---|---|---|---|
+| 🥇 1 | **`openai`** | OpenAI Chat Completions | 默认首选：生态最广、大陆可用、功能完备 |
+| 🥈 2 | `anthropic` | Anthropic Messages API | 视觉质量天花板，但需代理 + 偏贵 |
+| 🥉 3 | `responses` | OpenAI Responses API | OpenAI 官方新协议，生态窄（仅官方/Azure） |
+| 4 | `gemini` | Google generateContent | Google 官方，大陆不可达，GenerateContent 已 legacy |
+| 5 | `gemini-interactions` | Google Interactions API | 最新协议，新能力首发地，生态最窄 |
+
+---
+
+**🥇 1. `openai` — OpenAI Chat Completions（推荐默认）**
+
+- **优点**：厂商覆盖最广（OpenAI + 通义 / 智谱 / 阶跃 / DeepSeek / Kimi / 本地 Ollama / vLLM 全部提供兼容端点）；大陆可直接用国内厂商；`response_format` / `reasoning_effort` 两个关键特性全支持；适配器最成熟（含空内容重试）。
+- **缺点**：非 OpenAI 官方模型走的是各厂商自己实现的兼容层，个别厂商对 `response_format` 支持不完整（会触发降级到普通请求，靠 `_extract_json` 兜底）。
+- **适用**：绝大多数场景。你想用的模型有 OpenAI 兼容端点就选它。
+
+**🥈 2. `anthropic` — Anthropic Messages API（高质量档）**
+
+- **优点**：Claude 视觉在 UI 布局还原（analyze_layout）、表格/图表抽取（extract_table）、高分辨率截图细节上明显强于国内生态；原生结构化输出（json_schema）比 OpenAI 的 json_object 提示词约束更可靠；1M 上下文可一次塞大量图。
+- **缺点**：`api.anthropic.com` 大陆**无法直连**（需代理 + 国际支付）；美元计价偏贵；图片按视觉 token 计费（单图约 1.3k–4.8k）。
+- **适用**：追求视觉质量上限、能稳定访问 Anthropic 时。作为「高端档」按需切换。
+
+**🥉 3. `responses` — OpenAI Responses API（官方新协议）**
+
+- **优点**：OpenAI 官方下一代协议；内置工具（web search / image generation 等）仅此协议有；gpt-5.4+ Pro/Codex 模型只走它。
+- **缺点**：生态窄——**第三方兼容厂商几乎都是 Chat Completions**，Responses 只面向 OpenAI/Azure 官方端点；纯视觉能力与 Chat Completions 对齐，没有独占收益。
+- **适用**：用 OpenAI 官方 gpt-5.6 等模型、或想用 OpenAI 内置工具时。
+
+**4. `gemini` — Google generateContent（演进中）**
+
+- **优点**：Google 官方；单次图→文完全够用；generateContent 仍受支持、无关闭日期。
+- **缺点**：大陆**无法直连**（需代理）；Google 已将其标记 legacy，新能力（多轮状态、agentic）只在 Interactions 首发；默认模型名需手动更新（`gemini-1.5-pro` 已过时）。
+- **适用**：已有 Google API key 且网络可达时。
+
+**5. `gemini-interactions` — Google Interactions API（最新）**
+
+- **优点**：Google 新模型/新能力首发地；服务端多轮状态、可观测执行步骤。
+- **缺点**：生态最新也最窄；对单次图片理解无增量收益（deepeye 不用多轮）；`store=true` 默认留存数据（适配器已显式 `store=false`）。
+- **适用**：想尝鲜 Gemini 3.x 新模型、且明确需要其新能力时。
+
+> **一句话总结**：日常用 `openai`；想要最强视觉质量且能访问 Anthropic 用 `anthropic`；
+> 用 OpenAI 官方 gpt-5 系列用 `responses`；Gemini 两个协议是「有时想用 Google 模型」时的备选。
+
+切换到 Gemini：
+
+```bash
+VISION_PROVIDER=gemini
+GEMINI_API_KEY=你的key
+GEMINI_MODEL=gemini-2.0-flash
+```
+
+切换到 Anthropic（Claude 视觉）：
+
+```bash
+VISION_PROVIDER=anthropic
+ANTHROPIC_API_KEY=你的key
+ANTHROPIC_MODEL=claude-sonnet-5
+```
+
+切换到 OpenAI Responses（gpt-5 系列）：
+
+```bash
+VISION_PROVIDER=responses
+RESPONSES_API_KEY=sk-your-key
+RESPONSES_MODEL=gpt-5.6
+```
+
+> **协议说明**：`openai` / `responses` 传 OpenAI 兼容格式（本地 Ollama/vLLM 也走
+> `openai`，改 `OPENAI_BASE_URL` 即可）；
+> `anthropic` 走 Claude 原生 `Messages API`（`x-api-key` 认证 + `image` block）；
+> `gemini` 走 Google `generateContent`，`gemini-interactions` 走 Google 新版
+> `Interactions API`。各适配器内部已处理协议差异，工具层无需改动。
+
 ## 启动
 
 ```bash
@@ -132,15 +262,18 @@ Server 通过 stdio 与 MCP 客户端通信，单独运行不会输出交互界�
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `VISION_PROVIDER` | `openai` | 视觉后端提供者：`openai` / `gemini` / `custom` |
+| `VISION_PROVIDER` | `openai` | 视觉后端提供者：`openai` / `gemini` / `gemini-interactions` / `anthropic` / `responses` |
 | `OPENAI_API_KEY` | — | OpenAI 或兼容服务的 API Key |
 | `OPENAI_MODEL` | `gpt-5.6-luna` | 视觉模型名称 |
 | `OPENAI_BASE_URL` | — | 接口地址，留空用官方 `https://api.openai.com/v1`；可改为 Azure / 代理 / 兼容服务 |
 | `GEMINI_API_KEY` | — | Gemini 后端 API Key |
 | `GEMINI_MODEL` | `gemini-1.5-pro` | Gemini 模型名称 |
-| `CUSTOM_API_KEY` | — | 自定义 OpenAI 兼容服务 Key |
-| `CUSTOM_BASE_URL` | — | 自定义服务接口地址 |
-| `CUSTOM_MODEL` | `qwen-vl-max` | 自定义模型名称 |
+| `ANTHROPIC_API_KEY` | — | Anthropic Claude API Key（原生 Messages API） |
+| `ANTHROPIC_MODEL` | `claude-sonnet-5` | Claude 视觉模型名 |
+| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com/v1` | Anthropic 接口地址 |
+| `RESPONSES_API_KEY` | — | OpenAI Responses API Key |
+| `RESPONSES_MODEL` | `gpt-5.6` | Responses 视觉模型名 |
+| `RESPONSES_BASE_URL` | `https://api.openai.com/v1` | Responses 接口地址（OpenAI 官方协议） |
 | `OCR_BACKEND` | `openai` | `extract_text` 实际使用的视觉后端 |
 | `IMAGE_MAX_DIM` | `2048` | 图片预处理最大边长（像素），超过则等比缩放转 JPEG；`0` 禁用预处理 |
 | `CACHE_ENABLED` | `true` | 是否开启视觉结果缓存（LRU + TTL） |
@@ -153,36 +286,28 @@ Server 通过 stdio 与 MCP 客户端通信，单独运行不会输出交互界�
 | `MAX_IMAGE_BYTES` | `20971520` | 图片大小上限（字节），三种来源（URL / 本地路径 / data URI）统一校验，超过拒绝 |
 | `ALLOW_PRIVATE_URLS` | `false` | 是否允许访问内网/保留地址（SSRF 防护，默认禁止；仅本地调试设为 `true`） |
 
-用兼容服务的例子（阿里通义 Qwen-VL）：
-
-```dotenv
-VISION_PROVIDER=openai
-OPENAI_API_KEY=sk-your-dashscope-key
-OPENAI_MODEL=qwen-vl-max
-OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-```
-
-切换到 Gemini：
-
-```bash
-VISION_PROVIDER=gemini
-GEMINI_API_KEY=你的key
-GEMINI_MODEL=gemini-2.0-flash
-```
+> 厂商 base_url 示例见上文「各厂商 base_url 参考」，后端类型切换见「切换后端类型」。
 
 ## MCP 客户端集成
 
-DeepEye 是标准 stdio MCP Server，在 MCP 配置中声明 `deepeye` 启动命令，并通过 `env` 字段传入视觉后端凭证。
+DeepEye 是标准 stdio MCP Server，在 MCP 配置中声明 `deepeye` 启动命令，并通过 `env` 字段传入视觉后端凭证。**env 字段里填的就是上面「配置 API Key」的环境变量**，二者效果完全一样（MCP 配置的 env 优先于 `.env` 文件）。
 
 ### 方式一：Claude Code 命令行（推荐）
+
+OpenAI 官方 / 任意兼容厂商：
 
 ```bash
 claude mcp add deepeye --env VISION_PROVIDER=openai \
   --env OPENAI_API_KEY=sk-your-key \
-  --env OPENAI_MODEL=gpt-5.6-luna
+  --env OPENAI_MODEL=qwen-vl-max \
+  --env OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ```
 
-> 前提：`deepeye` 命令已在 PATH（`pip install deepeye-mcp` 后自动注册）。
+- 用 OpenAI 官方可以不写 `OPENAI_BASE_URL`（默认官方端点）
+- 用其他厂商，把 `OPENAI_API_KEY` / `OPENAI_MODEL` / `OPENAI_BASE_URL` 换成对应平台的值
+- 用 Gemini 原生就换成 `VISION_PROVIDER=gemini` + `GEMINI_API_KEY` + `GEMINI_MODEL`
+
+> 前提：`deepeye` 命令已在 PATH（`pip install -e .` 后自动注册）。
 
 ### 方式二：配置文件 `.mcp.json`
 
@@ -196,13 +321,27 @@ claude mcp add deepeye --env VISION_PROVIDER=openai \
       "env": {
         "VISION_PROVIDER": "openai",
         "OPENAI_API_KEY": "sk-your-key",
-        "OPENAI_BASE_URL": "https://your-compatible-service/v1",
-        "OPENAI_MODEL": "gpt-5.6-luna"
+        "OPENAI_BASE_URL": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "OPENAI_MODEL": "qwen-vl-max"
       }
     }
   }
 }
 ```
+
+**env 字段可选变量**（按需填写，未写的用默认值）：
+
+| env 键 | 作用 | 不填时 |
+|--------|------|--------|
+| `VISION_PROVIDER` | 后端类型 `openai`/`gemini`/`gemini-interactions`/`anthropic`/`responses` | `openai` |
+| `OPENAI_API_KEY` | OpenAI 兼容厂商的 Key | 空（部分厂商可无 key） |
+| `OPENAI_MODEL` | 视觉模型名 | `gpt-5.6-luna` |
+| `OPENAI_BASE_URL` | 厂商 OpenAI 兼容端点 | OpenAI 官方 |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Gemini 后端 | 仅 gemini / gemini-interactions 生效 |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Claude 后端 | 仅 anthropic 生效 |
+| `RESPONSES_API_KEY` / `RESPONSES_MODEL` | OpenAI Responses 后端 | 仅 responses 生效 |
+| `OCR_BACKEND` | OCR 单独用哪个后端 | 同 `VISION_PROVIDER` |
+| `REASONING_EFFORT` | 推理深度 `low`/`medium`/`high` | 空（不发送） |
 
 > 若 `deepeye` 不在 PATH，把 `command` 换成完整路径：
 > `"command": "D:/Program Files/Python314/Scripts/deepeye.exe"`。
@@ -255,8 +394,10 @@ deepeye/
 │           ├── __init__.py     # create_vision_adapter 工厂
 │           ├── base.py         # VisionAdapter 抽象基类
 │           ├── openai_adapter.py
+│           ├── responses_adapter.py
+│           ├── anthropic_adapter.py
 │           ├── gemini_adapter.py
-│           └── custom_adapter.py
+│           └── gemini_interactions_adapter.py
 └── tests/
     ├── test_image_utils.py
     ├── test_vision_factory.py

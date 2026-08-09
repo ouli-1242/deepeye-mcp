@@ -6,7 +6,6 @@ import pytest
 
 from deepeye_mcp.config import settings
 from deepeye_mcp.vision import create_vision_adapter
-from deepeye_mcp.vision.custom_adapter import CustomVisionAdapter
 from deepeye_mcp.vision.gemini_adapter import GeminiVisionAdapter
 from deepeye_mcp.vision.openai_adapter import OpenAIVisionAdapter
 
@@ -49,25 +48,6 @@ def test_create_vision_adapter_gemini_model_override(monkeypatch):
     assert adapter.model == "gemini-2.0-flash"
 
 
-def test_create_vision_adapter_custom(monkeypatch):
-    """vision_provider=custom 且配置 custom_base_url 时应返回 CustomVisionAdapter。"""
-    monkeypatch.setattr(settings, "vision_provider", "custom")
-    monkeypatch.setattr(settings, "custom_model", "qwen-vl-max")
-    monkeypatch.setattr(settings, "custom_base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-    adapter = create_vision_adapter()
-    assert isinstance(adapter, CustomVisionAdapter)
-    assert adapter.model == "qwen-vl-max"
-    assert adapter.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
-
-
-def test_create_vision_adapter_custom_model_override(monkeypatch):
-    monkeypatch.setattr(settings, "vision_provider", "custom")
-    monkeypatch.setattr(settings, "custom_base_url", "https://example.com/v1")
-    adapter = create_vision_adapter(model_override="ollama-llava")
-    assert isinstance(adapter, CustomVisionAdapter)
-    assert adapter.model == "ollama-llava"
-
-
 def test_create_vision_adapter_unknown_provider_raises_value_error(monkeypatch):
     """未知 provider 应抛 ValueError（而非 NotImplementedError）。"""
     monkeypatch.setattr(settings, "vision_provider", "unknown")
@@ -86,10 +66,3 @@ def test_create_vision_adapter_gemini_case_insensitive(monkeypatch):
     monkeypatch.setattr(settings, "vision_provider", "GEMINI")
     adapter = create_vision_adapter()
     assert isinstance(adapter, GeminiVisionAdapter)
-
-
-def test_create_vision_adapter_custom_case_insensitive(monkeypatch):
-    monkeypatch.setattr(settings, "vision_provider", "Custom")
-    monkeypatch.setattr(settings, "custom_base_url", "https://example.com/v1")
-    adapter = create_vision_adapter()
-    assert isinstance(adapter, CustomVisionAdapter)

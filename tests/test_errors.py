@@ -12,8 +12,8 @@ def _http_error(status: int) -> httpx.HTTPStatusError:
 
 
 def test_config_missing_base_url():
-    exc = ValueError("custom_base_url 未配置：使用 custom 视觉后端必须设置 CUSTOM_BASE_URL")
-    category, message = classify_error(exc, "custom")
+    exc = ValueError("ANTHROPIC_API_KEY 未配置：使用 anthropic 视觉后端必须设置 ANTHROPIC_API_KEY")
+    category, message = classify_error(exc, "anthropic")
     assert category == "config"
     assert "配置错误" in message
 

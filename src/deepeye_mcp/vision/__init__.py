@@ -7,16 +7,20 @@
 from __future__ import annotations
 
 from deepeye_mcp.config import settings
+from deepeye_mcp.vision.anthropic_adapter import AnthropicVisionAdapter
 from deepeye_mcp.vision.base import VisionAdapter
-from deepeye_mcp.vision.custom_adapter import CustomVisionAdapter
 from deepeye_mcp.vision.gemini_adapter import GeminiVisionAdapter
+from deepeye_mcp.vision.gemini_interactions_adapter import GeminiInteractionsAdapter
 from deepeye_mcp.vision.openai_adapter import OpenAIVisionAdapter
+from deepeye_mcp.vision.responses_adapter import ResponsesVisionAdapter
 
 __all__ = [
     "VisionAdapter",
     "OpenAIVisionAdapter",
     "GeminiVisionAdapter",
-    "CustomVisionAdapter",
+    "AnthropicVisionAdapter",
+    "ResponsesVisionAdapter",
+    "GeminiInteractionsAdapter",
     "create_vision_adapter",
 ]
 
@@ -29,9 +33,9 @@ def create_vision_adapter(
 
     Args:
         model_override: 可选的模型名称覆盖；未指定时使用配置默认值。
-        provider: 可选的视觉后端覆盖（openai / gemini / custom）；
-            未指定时使用 ``settings.vision_provider``。用于 ``extract_text``
-            按 ``settings.ocr_backend`` 指定 OCR 后端。
+        provider: 可选的视觉后端覆盖（openai / gemini / anthropic /
+            responses）；未指定时使用 ``settings.vision_provider``。用于
+            ``extract_text`` 按 ``settings.ocr_backend`` 指定 OCR 后端。
 
     Returns:
         :class:`VisionAdapter` 具体实例。
@@ -44,6 +48,10 @@ def create_vision_adapter(
         return OpenAIVisionAdapter(model=model_override)
     if provider == "gemini":
         return GeminiVisionAdapter(model=model_override)
-    if provider == "custom":
-        return CustomVisionAdapter(model=model_override)
+    if provider == "anthropic":
+        return AnthropicVisionAdapter(model=model_override)
+    if provider == "responses":
+        return ResponsesVisionAdapter(model=model_override)
+    if provider == "gemini-interactions":
+        return GeminiInteractionsAdapter(model=model_override)
     raise ValueError(f"不支持的视觉后端: {provider!r}")

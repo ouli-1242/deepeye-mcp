@@ -379,7 +379,7 @@ async def test_describe_image_config_error_classified(mock_factory):
     """配置缺失类错误应抛 VisionError 并含「配置错误」提示。"""
     mock_adapter = MagicMock()
     mock_adapter.describe = AsyncMock(
-        side_effect=ValueError("custom_base_url 未配置：使用 custom 视觉后端必须设置 CUSTOM_BASE_URL")
+        side_effect=ValueError("ANTHROPIC_API_KEY 未配置：使用 anthropic 视觉后端必须设置 ANTHROPIC_API_KEY")
     )
     mock_factory.return_value = mock_adapter
 

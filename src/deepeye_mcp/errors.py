@@ -26,7 +26,7 @@ def classify_error(exc: Exception, provider: str = "") -> tuple[str, str]:
 
     Args:
         exc: 捕获到的异常。
-        provider: 当前视觉后端（openai/gemini/custom），预留用于针对性提示。
+        provider: 当前视觉后端（openai/gemini/anthropic 等），预留用于针对性提示。
 
     Returns:
         ``(category, message)``；category 取值：

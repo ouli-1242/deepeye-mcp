@@ -8,7 +8,7 @@
 - 声明 5: analyze_images 并发受 Semaphore 限制
 - 声明 6: data URI / 本地路径超限被拒绝
 - 声明 7: EXIF 方向转正
-- 声明 8: gemini/custom 复用模块级 client
+- 声明 8: gemini 复用模块级 client
 - 声明 9: detail 非法值返回 isError；analyze_images 空数组返回 isError
 """
 
@@ -271,14 +271,6 @@ def test_gemini_uses_module_client():
     import inspect
     from deepeye_mcp.vision import gemini_adapter
     src = inspect.getsource(gemini_adapter.GeminiVisionAdapter.describe)
-    assert "AsyncClient()" not in src, "describe 不应再新建 AsyncClient"
-    assert "_get_client()" in src
-
-
-def test_custom_uses_module_client():
-    import inspect
-    from deepeye_mcp.vision import custom_adapter
-    src = inspect.getsource(custom_adapter.CustomVisionAdapter.describe)
     assert "AsyncClient()" not in src, "describe 不应再新建 AsyncClient"
     assert "_get_client()" in src
 
