@@ -40,7 +40,9 @@ from deepeye_mcp.tools import (
 _TOOLS: list[Tool] = [
     Tool(
         name="describe_image",
-        description="描述图片内容，支持本地路径 / 公网 URL / Base64 data URI 三种来源。",
+        description="描述图片内容，支持本地路径 / 公网 URL / Base64 data URI 三种来源。"
+        " 何时用：需要理解图片整体内容（画面、布局、风格）时优先用；"
+        " 何时不用：只要文字用 extract_text，只要回答问题用 ask_about_image。",
         inputSchema={
             "type": "object",
             "properties": {
@@ -62,7 +64,9 @@ _TOOLS: list[Tool] = [
     ),
     Tool(
         name="extract_text",
-        description="提取图片中的文字（OCR），保持原文排版，不加额外描述。",
+        description="提取图片中的文字（OCR），保持原文排版，不加额外描述。"
+        "何时用：图片/截图里有需要照抄的文字（报错信息、票据、白板笔记）。"
+        "何时不用：要理解内容含义用 describe_image 或 ask_about_image。",
         inputSchema={
             "type": "object",
             "properties": {
@@ -80,7 +84,9 @@ _TOOLS: list[Tool] = [
     ),
     Tool(
         name="ask_about_image",
-        description="根据图片内容回答问题（视觉问答）。",
+        description="根据图片内容回答问题（视觉问答）：关于图片的任何具体问题。"
+        "何时用：看图名、图里的数字、操作步骤、故障判断等需要定向回答时。"
+        "何时不用：要整体描述用 describe_image，要原文文字用 extract_text。",
         inputSchema={
             "type": "object",
             "properties": {
@@ -98,7 +104,8 @@ _TOOLS: list[Tool] = [
     ),
     Tool(
         name="analyze_layout",
-        description="UI 布局结构化分析：返回 JSON，包含元素类型、位置坐标、样式（detailed 模式）。适合前端复刻场景。",
+        description="UI 布局结构化分析：返回 JSON，包含元素类型、位置坐标、样式（detailed 模式）。"
+        "适合前端复刻场景：需要按图还原网页/APP 界面结构时用；general 看图用 describe_image。",
         inputSchema={
             "type": "object",
             "properties": {
@@ -111,7 +118,8 @@ _TOOLS: list[Tool] = [
     ),
     Tool(
         name="extract_table",
-        description="提取图片中的表格为 Markdown（截图/纸质/图表/合并单元格均支持）；复杂表格附带 JSON 结构。",
+        description="提取图片中的表格为 Markdown（截图/纸质/图表/合并单元格均支持）；复杂表格附带 JSON 结构。"
+        "何时用：用户贴了表格截图/表格照片需要结构化数据时；数据整理后可直接喂给代码或分析。",
         inputSchema={
             "type": "object",
             "properties": {
@@ -123,12 +131,14 @@ _TOOLS: list[Tool] = [
     ),
     Tool(
         name="analyze_images",
-        description="批量分析多张图片：逐图返回结果 + 跨图对比汇总。",
+        description="批量分析多张图片：逐图返回结果 + 跨图对比汇总。"
+        "何时用：一次任务涉及多张图（多张截图对比、一组 UI 稿统一评审、短系列图读懂）。"
+        "单张图用 describe_image 更省。",
         inputSchema={
             "type": "object",
             "properties": {
                 "image_sources": {"type": "array", "items": {"type": "string"}, "description": "多张图片来源（本地路径 / URL / data URI）。"},
-                "prompt": {"type": "string", "description": "应用于每张图的统一提示词，可选。"},
+                "prompt": {"type": "string", "description": "应用于每张图的统一提示词，可选。默认使用详细描述提示词。"},
                 "model": {"type": "string", "description": "可选模型名称覆盖。"},
             },
             "required": ["image_sources"],
@@ -192,9 +202,25 @@ async def call_tool(
     return CallToolResult(content=content)
 
 
+DEEPEYE_INSTRUCTIONS = (
+    "DeepEye：把图片变成可用信息。识图工具组，图片来源支持三种形式——本地绝对路径、"
+    "http(s) 公网 URL、data:image/...;base64,... data URI。\n"
+    "按任务选工具：\n"
+    "- 理解图片讲了什么（整体内容/画面/风格/布局）→ describe_image\n"
+    "- 只要照抄/提取文字（OCR：报错、票据、笔记）→ extract_text\n"
+    "- 针对图定向回答问题（数值、步骤、判断）→ ask_about_image；通用描述不适合\n"
+    "- 前端复刻/还原 UI 结构 → analyze_layout（详细 JSON 元素+坐标+样式）\n"
+    "- 图里有表格要结构化数据 → extract_table（Markdown + 复杂表格 JSON）\n"
+    "- 一次多张图（对比评审、一组截图）→ analyze_images；单张优先单图工具\n"
+    "纪律：能用 OCR 别让模型看图说话；能用 question 别大段描述；"
+    "多图任务优先批量工具避免重复调用；图片来源优先用本地路径（少上传、快）。"
+)
+
+
 server = Server(
     "deepeye",
     version=__version__,
+    instructions=DEEPEYE_INSTRUCTIONS,
     on_list_tools=list_tools,
     on_call_tool=call_tool,
 )

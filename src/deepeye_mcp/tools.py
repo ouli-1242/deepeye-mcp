@@ -1,10 +1,12 @@
 """DeepEye MCP 工具实现。
 
-四个工具均返回 ``list[TextContent]``：
+六个工具均返回 ``list[TextContent]``：
 - :func:`describe_image`：图片详细描述
 - :func:`extract_text`：OCR 文字提取
 - :func:`ask_about_image`：视觉问答
 - :func:`analyze_layout`：UI 布局结构化分析（返回 JSON）
+- :func:`extract_table`：表格提取为 Markdown（复杂表格附带 JSON）
+- :func:`analyze_images`：批量分析多张图片 + 跨图对比
 """
 
 from __future__ import annotations
@@ -112,7 +114,7 @@ async def describe_image(
 
     Args:
         image_source: 图像来源（本地路径 / 公网 URL / Base64 data URI）。
-        prompt: 描述提示词，默认为简洁描述。
+        prompt: 描述提示词，默认使用详细分点描述提示词（布局/元素/配色/问题）。
         model: 可选模型名称覆盖。
 
     Returns:
