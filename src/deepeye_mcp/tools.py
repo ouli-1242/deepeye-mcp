@@ -22,7 +22,7 @@ from mcp.types import TextContent
 
 from deepeye_mcp.cache import vision_cache
 from deepeye_mcp.config import settings
-from deepeye_mcp.errors import classify_error
+from deepeye_mcp.errors import VisionError, classify_error
 from deepeye_mcp.image_utils import parse_image_source, preprocess_image
 from deepeye_mcp.table import _TABLE_JSON_PROMPT, has_merged_cells, json_to_markdown
 from deepeye_mcp.vision import create_vision_adapter
@@ -58,6 +58,7 @@ async def _run_vision(
     max_tokens: int | None = None,
     reasoning_effort: str | None = None,
     response_format: dict | None = None,
+    provider: str | None = None,
 ) -> str:
     """内部统一流程：解析图像源 → 预处理 → 查缓存 → 调用适配器 → 写缓存。
 
@@ -70,6 +71,7 @@ async def _run_vision(
         max_tokens: 输出 token 上限覆盖；None 时使用配置默认值。
         reasoning_effort: 推理深度覆盖；None 时用配置默认。
         response_format: 输出格式约束（如 ``{"type": "json_object"}``）。
+        provider: 可选的视觉后端覆盖（如 ``settings.ocr_backend``）；None 用默认。
 
     Returns:
         视觉模型返回的文本。
@@ -88,7 +90,7 @@ async def _run_vision(
         if cached is not None:
             return cached
 
-    adapter = create_vision_adapter(model)
+    adapter = create_vision_adapter(model, provider=provider)
     text = await adapter.describe(
         b64_data,
         mime_type,
@@ -124,7 +126,7 @@ async def describe_image(
         description = await _run_vision(image_source, prompt, model)
         return [TextContent(type="text", text=f"图片分析结果：\n{description}")]
     except Exception as exc:
-        return [TextContent(type="text", text=f"图片分析失败：{classify_error(exc, settings.vision_provider)[1]}")]
+        raise VisionError(f"图片分析失败：{classify_error(exc, settings.vision_provider)[1]}") from exc
 
 
 async def extract_text(
@@ -146,10 +148,11 @@ async def extract_text(
     if language != "auto":
         prompt += f" 优先识别语言：{language}"
     try:
-        text = await _run_vision(image_source, prompt)
+        # 按 OCR_BACKEND 指定后端（默认与 vision_provider 一致）
+        text = await _run_vision(image_source, prompt, provider=settings.ocr_backend)
         return [TextContent(type="text", text=text)]
     except Exception as exc:
-        return [TextContent(type="text", text=f"OCR 失败：{classify_error(exc, settings.vision_provider)[1]}")]
+        raise VisionError(f"OCR 失败：{classify_error(exc, settings.ocr_backend)}") from exc
 
 
 async def ask_about_image(
@@ -170,7 +173,7 @@ async def ask_about_image(
         answer = await _run_vision(image_source, prompt)
         return [TextContent(type="text", text=answer)]
     except Exception as exc:
-        return [TextContent(type="text", text=f"视觉问答失败：{classify_error(exc, settings.vision_provider)[1]}")]
+        raise VisionError(f"视觉问答失败：{classify_error(exc, settings.vision_provider)[1]}") from exc
 
 
 def _extract_json(text: str, require_key: str | None = None) -> str | None:
@@ -250,12 +253,17 @@ async def analyze_layout(
             json_str = _extract_json(text, require_key="layout_type")
             if json_str is not None:
                 return [TextContent(type="text", text=json_str)]
-        return [TextContent(type="text", text="布局分析失败：模型多次未返回有效 JSON")]
+        raise VisionError("布局分析失败：模型多次未返回有效 JSON")
+    except VisionError:
+        raise
     except Exception as exc:
-        return [TextContent(type="text", text=f"布局分析失败：{classify_error(exc, settings.vision_provider)[1]}")]
+        raise VisionError(f"布局分析失败：{classify_error(exc, settings.vision_provider)[1]}") from exc
 
 
 _TABLE_RETRIES = 3
+
+# analyze_images 并发上限：限制同时进行的图片下载 + 视觉请求数，防止内存/连接峰值
+_ANALYZE_IMAGES_CONCURRENCY = 4
 
 
 async def extract_table(
@@ -304,9 +312,11 @@ async def extract_table(
                         text=f"{md}\n\n（检测到合并单元格，附 JSON 完整结构）\n```json\n{json_str}\n```",
                     )]
                 return [TextContent(type="text", text=md)]
-        return [TextContent(type="text", text="表格提取失败：模型多次未返回有效表格 JSON")]
+        raise VisionError("表格提取失败：模型多次未返回有效表格 JSON")
+    except VisionError:
+        raise
     except Exception as exc:
-        return [TextContent(type="text", text=f"表格提取失败：{classify_error(exc, settings.vision_provider)[1]}")]
+        raise VisionError(f"表格提取失败：{classify_error(exc, settings.vision_provider)[1]}") from exc
 
 
 def _source_name(source: str, index: int) -> str:
@@ -334,16 +344,23 @@ async def analyze_images(
         含逐图结果与汇总的 ``list[TextContent]``。
     """
     if not image_sources:
-        return [TextContent(type="text", text="错误：image_sources 数组不能为空")]
+        raise VisionError("错误：image_sources 数组不能为空")
 
     provider = settings.vision_provider
+    # 并发上限：避免 N 张图同时发起 N 个下载+API 请求导致内存/连接峰值不可控
+    _semaphore = asyncio.Semaphore(_ANALYZE_IMAGES_CONCURRENCY)
+
+    async def _limit(src: str) -> str | BaseException:
+        async with _semaphore:
+            return await _run_vision(src, prompt, model)
+
     try:
         per_image: list[str | BaseException] = await asyncio.gather(
-            *[_run_vision(src, prompt, model) for src in image_sources],
+            *[_limit(src) for src in image_sources],
             return_exceptions=True,
         )
     except Exception as exc:
-        return [TextContent(type="text", text=f"批量分析失败：{classify_error(exc, provider)[1]}")]
+        raise VisionError(f"批量分析失败：{classify_error(exc, provider)[1]}") from exc
 
     lines: list[str] = []
     for i, (src, result) in enumerate(zip(image_sources, per_image), 1):

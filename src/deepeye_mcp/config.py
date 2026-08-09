@@ -6,6 +6,8 @@ OpenAI / Gemini / 自定义 OpenAI 兼容服务三类视觉后端。
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,7 +43,7 @@ class Settings(BaseSettings):
 
     # ---------- OCR 后端 ----------
     # extract_text 工具实际使用的视觉后端：openai / gemini / custom
-    ocr_backend: str = "openai"
+    ocr_backend: Literal["openai", "gemini", "custom"] = "openai"
 
     # ---------- 性能优化 ----------
     # 图片预处理：最大边长，超过则等比缩放后转 JPEG；0 表示禁用预处理

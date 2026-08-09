@@ -12,6 +12,17 @@ from deepeye_mcp.config import settings
 from deepeye_mcp.vision.base import VisionAdapter
 
 
+# 复用单个 AsyncClient，避免每次请求新建连接（与 openai_adapter 一致）
+_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None:
+        _client = httpx.AsyncClient(timeout=settings.request_timeout)
+    return _client
+
+
 def _extract_message(data: dict) -> dict | None:
     """从 Chat Completions 响应中稳健提取首个 message。
 
@@ -99,13 +110,12 @@ class CustomVisionAdapter(VisionAdapter):
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
-        timeout = settings.request_timeout
         last_exc: Exception | None = None
+        client = _get_client()
         for attempt in range(settings.max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=timeout) as client:
-                    response = await client.post(url, json=payload, headers=headers)
-                    response.raise_for_status()
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
                 break
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_exc = exc
@@ -138,10 +148,9 @@ class CustomVisionAdapter(VisionAdapter):
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
-        timeout = settings.request_timeout
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
+        client = _get_client()
+        response = await client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
 
         data = response.json()
         message = _extract_message(data)

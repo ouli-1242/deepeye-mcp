@@ -13,6 +13,16 @@ from deepeye_mcp.vision.base import VisionAdapter
 
 _DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
+# 复用单个 AsyncClient，避免每次请求新建连接（与 openai_adapter 一致）
+_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None:
+        _client = httpx.AsyncClient(timeout=settings.request_timeout)
+    return _client
+
 
 class GeminiVisionAdapter(VisionAdapter):
     """基于 Google Gemini ``generateContent`` 的视觉适配器。
@@ -72,15 +82,21 @@ class GeminiVisionAdapter(VisionAdapter):
         }
         if max_tokens is not None:
             payload["generationConfig"] = {"maxOutputTokens": max_tokens}
+        # 映射 response_format json_object -> Gemini generationConfig.responseMimeType。
+        # Gemini 没有 OpenAI 式 response_format，若不映射会被静默忽略，
+        # 导致 JSON 稳定性承诺在 Gemini 上失效且无感知。
+        if response_format and response_format.get("type") == "json_object":
+            gen = payload.setdefault("generationConfig", {})
+            gen["responseMimeType"] = "application/json"
         headers = {"Content-Type": "application/json"}
 
         timeout = settings.request_timeout
         last_exc: Exception | None = None
+        client = _get_client()
         for attempt in range(settings.max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=timeout) as client:
-                    response = await client.post(url, params=params, json=payload, headers=headers)
-                    response.raise_for_status()
+                response = await client.post(url, params=params, json=payload, headers=headers)
+                response.raise_for_status()
                 break
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_exc = exc
@@ -106,10 +122,9 @@ class GeminiVisionAdapter(VisionAdapter):
             "contents": [{"parts": [{"text": prompt}]}]
         }
         headers = {"Content-Type": "application/json"}
-        timeout = settings.request_timeout
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(url, params=params, json=payload, headers=headers)
-            response.raise_for_status()
+        client = _get_client()
+        response = await client.post(url, params=params, json=payload, headers=headers)
+        response.raise_for_status()
 
         data = response.json()
         try:

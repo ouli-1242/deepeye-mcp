@@ -8,6 +8,19 @@ from __future__ import annotations
 import httpx
 
 
+class VisionError(Exception):
+    """工具级失败异常：携带面向用户的错误文案。
+
+    tools.py 各工具失败分支捕获底层异常后抛出本异常（文案与旧版一致），
+    server.py 的 ``call_tool`` 最外层捕获它并返回 ``isError=True`` 的
+    ``CallToolResult``，让调用方（agent）能区分正常结果与失败。
+    """
+
+    def __init__(self, message: str, category: str = "unknown") -> None:
+        super().__init__(message)
+        self.category = category
+
+
 def classify_error(exc: Exception, provider: str = "") -> tuple[str, str]:
     """把异常分类为 ``(category, message)``。
 

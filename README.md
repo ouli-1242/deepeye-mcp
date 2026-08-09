@@ -4,42 +4,22 @@
 
 ## 安装
 
-```bash
-pip install deepeye-mcp
-```
+> 本项目为本地自制项目，未发布到 PyPI，请从源码安装。
 
-或从源码安装（开发者）：
-
-**第 1 步：下载源码并进入目录**
+### 从源码安装
 
 ```bash
 git clone https://github.com/ouli-1242/deepeye-mcp.git
 cd deepeye-mcp
-```
 
-> 注意：`cd` 进入的是克隆下来的 `deepeye-mcp` 目录（即你刚才下载的文件夹名）。
+# 普通安装（代码复制到 site-packages，源码目录可随意移动）
+pip install .
 
-**第 2 步：创建虚拟环境**
-
-```bash
-python -m venv .venv
-```
-
-**第 3 步：激活虚拟环境 + 安装**
-
-Windows：
-
-```bash
-.venv\Scripts\activate
+# 开发模式（editable，改代码即时生效，源码目录不可移动）
 pip install -e .
 ```
 
-macOS / Linux：
-
-```bash
-source .venv/bin/activate
-pip install -e .
-```
+> 说明：editable 安装（`-e .`）让源码改动即时生效，无需每次重装。支持全局 Python 或任意虚拟环境；本仓库开发环境使用全局 Python 3.11+。
 
 装好后命令 `deepeye` 即可用。
 
@@ -48,14 +28,6 @@ pip install -e .
 ## 卸载
 
 ```bash
-pip uninstall deepeye-mcp
-```
-
-若装在虚拟环境中，先激活再卸载：
-
-```bash
-.venv\Scripts\activate   # Windows
-source .venv/bin/activate  # macOS / Linux
 pip uninstall deepeye-mcp
 ```
 
@@ -178,7 +150,7 @@ Server 通过 stdio 与 MCP 客户端通信，单独运行不会输出交互界�
 | `MAX_RETRIES` | `3` | 失败重试次数（仅对网络/超时错误重试） |
 | `MAX_TOKENS` | `4096` | 视觉模型返回的最大 token 数 |
 | `REASONING_EFFORT` | 空 | 推理深度 `low`/`medium`/`high`；留空不发送该参数（部分后端不支持） |
-| `MAX_IMAGE_BYTES` | `20971520` | URL 图片下载大小上限（字节），超过拒绝 |
+| `MAX_IMAGE_BYTES` | `20971520` | 图片大小上限（字节），三种来源（URL / 本地路径 / data URI）统一校验，超过拒绝 |
 | `ALLOW_PRIVATE_URLS` | `false` | 是否允许访问内网/保留地址（SSRF 防护，默认禁止；仅本地调试设为 `true`） |
 
 用兼容服务的例子（阿里通义 Qwen-VL）：
@@ -205,13 +177,12 @@ DeepEye 是标准 stdio MCP Server，在 MCP 配置中声明 `deepeye` 启动命
 ### 方式一：Claude Code 命令行（推荐）
 
 ```bash
-claude mcp add deepeye -- /path/to/deepeye/.venv/bin/deepeye \
-  --env VISION_PROVIDER=openai \
+claude mcp add deepeye --env VISION_PROVIDER=openai \
   --env OPENAI_API_KEY=sk-your-key \
   --env OPENAI_MODEL=gpt-5.6-luna
 ```
 
-Windows 下把命令路径换成 `.venv\Scripts\deepeye.exe`。
+> 前提：`deepeye` 命令已在 PATH（`pip install deepeye-mcp` 后自动注册）。
 
 ### 方式二：配置文件 `.mcp.json`
 
@@ -221,7 +192,7 @@ Windows 下把命令路径换成 `.venv\Scripts\deepeye.exe`。
 {
   "mcpServers": {
     "deepeye": {
-      "command": "D:/tools/deepeye/.venv/Scripts/deepeye.exe",
+      "command": "deepeye",
       "env": {
         "VISION_PROVIDER": "openai",
         "OPENAI_API_KEY": "sk-your-key",
@@ -233,7 +204,10 @@ Windows 下把命令路径换成 `.venv\Scripts\deepeye.exe`。
 }
 ```
 
-保存后重启 Claude Code，`/mcp` 面板中应显示 `deepeye` 已连接。若显示 failed，运行 `.venv/Scripts/deepeye.exe` 查看报错。
+> 若 `deepeye` 不在 PATH，把 `command` 换成完整路径：
+> `"command": "D:/Program Files/Python314/Scripts/deepeye.exe"`。
+
+保存后重启 Claude Code，`/mcp` 面板中应显示 `deepeye` 已连接。若显示 failed，运行 `deepeye` 查看报错。
 
 其他客户端（Cursor / Cline / Windsurf 等）的配置方式见 [接入 Coding Agent 指南](docs/coding-agent-integration.md)。
 
@@ -256,7 +230,7 @@ Windows 下把命令路径换成 `.venv\Scripts\deepeye.exe`。
 pytest tests/ -v
 ```
 
-测试覆盖图像源解析、视觉适配器工厂、四个工具的 prompt 组装逻辑，全部使用 mock，不发起真实 API 调用。
+测试覆盖图像源解析、视觉适配器工厂、六个工具的 prompt 组装逻辑，全部使用 mock，不发起真实 API 调用。
 
 ### 新增视觉后端
 
@@ -273,7 +247,7 @@ deepeye/
 │   └── deepeye_mcp/
 │       ├── __init__.py         # __version__
 │       ├── server.py           # MCP Server 组装（mcp 2.0 API）
-│       ├── tools.py            # 四个 MCP 工具实现
+│       ├── tools.py            # 六个 MCP 工具实现
 │       ├── image_utils.py      # 图像源解析（本地/URL/data URI）
 │       ├── config.py           # pydantic-settings 配置加载
 │       ├── cache.py            # 视觉结果缓存

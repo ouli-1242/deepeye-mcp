@@ -17,8 +17,8 @@ DeepEye 是一个 **stdio 类型的 MCP Server**，为纯文本模型（如 Deep
 | 启动命令 | `deepeye`（等价 `python -m deepeye_mcp.server`） |
 | 传输方式 | stdio（标准输入输出 JSON-RPC） |
 | 配置方式 | 环境变量（优先于 `.env` 文件） |
-| Windows 可执行文件 | `d:\AAA_Favio_2026\AI_exploring\projects\deepeye-ai\deepeye\.venv\Scripts\deepeye.exe` |
-| macOS/Linux 可执行文件 | `/path/to/deepeye/.venv/bin/deepeye` |
+| Windows 启动命令 | `D:/Program Files/Python314/python.exe -m deepeye_mcp.server`（`python` 不在 PATH 时用完整路径） |
+| macOS/Linux 启动命令 | `python -m deepeye_mcp.server` |
 
 DeepEye 支持的环境变量：
 
@@ -36,9 +36,9 @@ DeepEye 支持的环境变量：
 | `CACHE_TTL` | 缓存存活秒数 | `3600` |
 | `REQUEST_TIMEOUT` | 视觉后端 HTTP 请求超时（秒） | `120` |
 | `MAX_RETRIES` | 失败重试次数（仅对网络/超时错误重试） | `3` |
-| `MAX_TOKENS` | 视觉模型返回的最大 token 数 | `1024` |
+| `MAX_TOKENS` | 视觉模型返回的最大 token 数 | `4096` |
 
-> 本文示例统一以 OpenAI 后端为例。命令路径用 `/path/to/deepeye/.venv/bin/deepeye` 作为占位，Windows 下应替换为对应的 `.exe` 路径，且 JSON 中的反斜杠需转义为 `\\`。
+> 本文示例统一以 OpenAI 后端为例。启动命令统一用 `deepeye`（`pip install` 后自动注册到 PATH）；若不在 PATH，可用 `python -m deepeye_mcp.server` 或完整路径。
 
 ---
 
@@ -83,7 +83,7 @@ JSON。MCP server 配置在 `mcp` 字段下，每个 server 一个对象。本�
   "mcp": {
     "deepeye": {
       "type": "local",
-      "command": ["/path/to/deepeye/.venv/bin/deepeye"],
+      "command": ["deepeye"],
       "enabled": true,
       "environment": {
         "VISION_PROVIDER": "openai",
@@ -102,7 +102,7 @@ Windows 示例（注意反斜杠转义）：
   "mcp": {
     "deepeye": {
       "type": "local",
-      "command": ["d:\\AAA_Favio_2026\\AI_exploring\\projects\\deepeye-ai\\deepeye\\.venv\\Scripts\\deepeye.exe"],
+      "command": ["deepeye"],
       "enabled": true,
       "environment": {
         "VISION_PROVIDER": "openai",
@@ -186,7 +186,7 @@ TOML。使用 `[mcp_servers.<name>]` 表（注意是 snake_case `mcp_servers`，
 
 ```toml
 [mcp_servers.deepeye]
-command = "/path/to/deepeye/.venv/bin/deepeye"
+command = "deepeye"
 startup_timeout_sec = 20
 tool_timeout_sec = 60
 
@@ -200,7 +200,7 @@ Windows 示例（TOML 中字符串反斜杠无需双写，但建议用正斜杠�
 
 ```toml
 [mcp_servers.deepeye]
-command = "d:/AAA_Favio_2026/AI_exploring/projects/deepeye-ai/deepeye/.venv/Scripts/deepeye.exe"
+command = "deepeye"
 startup_timeout_sec = 20
 tool_timeout_sec = 60
 
@@ -248,7 +248,7 @@ claude mcp add --scope user \
   -e VISION_PROVIDER=openai \
   -e OPENAI_API_KEY=sk-xxx \
   -e OPENAI_MODEL=gpt-5.6-luna \
-  deepeye -- /path/to/deepeye/.venv/bin/deepeye
+  deepeye -- deepeye
 ```
 
 JSON 方式（`.mcp.json` 或 `~/.claude.json`）：
@@ -257,7 +257,7 @@ JSON 方式（`.mcp.json` 或 `~/.claude.json`）：
 {
   "mcpServers": {
     "deepeye": {
-      "command": "/path/to/deepeye/.venv/bin/deepeye",
+      "command": "deepeye",
       "env": {
         "VISION_PROVIDER": "openai",
         "OPENAI_API_KEY": "sk-xxx",
@@ -307,7 +307,7 @@ JSON，顶层字段为 `mcpServers`。stdio server 使用 `command`（字符串�
 {
   "mcpServers": {
     "deepeye": {
-      "command": "/path/to/deepeye/.venv/bin/deepeye",
+      "command": "deepeye",
       "args": [],
       "env": {
         "VISION_PROVIDER": "openai",
@@ -327,7 +327,7 @@ Windows 示例（反斜杠转义）：
 {
   "mcpServers": {
     "deepeye": {
-      "command": "d:\\AAA_Favio_2026\\AI_exploring\\projects\\deepeye-ai\\deepeye\\.venv\\Scripts\\deepeye.exe",
+      "command": "deepeye",
       "args": [],
       "env": {
         "VISION_PROVIDER": "openai",
@@ -381,7 +381,7 @@ JSON，顶层字段为 `mcpServers`（与 Claude Desktop 格式一致，可互�
 {
   "mcpServers": {
     "deepeye": {
-      "command": "/path/to/deepeye/.venv/bin/deepeye",
+      "command": "deepeye",
       "args": [],
       "env": {
         "VISION_PROVIDER": "openai",
@@ -399,7 +399,7 @@ Windows 示例（反斜杠转义）：
 {
   "mcpServers": {
     "deepeye": {
-      "command": "d:\\AAA_Favio_2026\\AI_exploring\\projects\\deepeye-ai\\deepeye\\.venv\\Scripts\\deepeye.exe",
+      "command": "deepeye",
       "args": [],
       "env": {
         "VISION_PROVIDER": "openai",
@@ -450,7 +450,7 @@ Windsurf 支持配置插值：在 `command`、`args`、`env`、`serverUrl`、`ur
 {
   "mcpServers": {
     "deepeye": {
-      "command": "/path/to/deepeye/.venv/bin/deepeye",
+      "command": "deepeye",
       "args": [],
       "env": {
         "VISION_PROVIDER": "openai",
@@ -468,7 +468,7 @@ Windows 示例（反斜杠转义）：
 {
   "mcpServers": {
     "deepeye": {
-      "command": "d:\\AAA_Favio_2026\\AI_exploring\\projects\\deepeye-ai\\deepeye\\.venv\\Scripts\\deepeye.exe",
+      "command": "deepeye",
       "args": [],
       "env": {
         "VISION_PROVIDER": "openai",
@@ -524,7 +524,7 @@ JSON（或 YAML）。顶层字段为 `mcpServers`，但与其他客户端不同�
       "name": "deepeye",
       "transport": {
         "type": "stdio",
-        "command": "/path/to/deepeye/.venv/bin/deepeye",
+        "command": "deepeye",
         "args": [],
         "env": {
           "VISION_PROVIDER": "openai",
@@ -546,7 +546,7 @@ Windows 示例（反斜杠转义）：
       "name": "deepeye",
       "transport": {
         "type": "stdio",
-        "command": "d:\\AAA_Favio_2026\\AI_exploring\\projects\\deepeye-ai\\deepeye\\.venv\\Scripts\\deepeye.exe",
+        "command": "deepeye",
         "args": [],
         "env": {
           "VISION_PROVIDER": "openai",
@@ -598,7 +598,7 @@ Zed 当前仅支持 MCP 的 **Tools** 与 **Prompts** 特性，暂不支持 Reso
 {
   "context_servers": {
     "deepeye": {
-      "command": "/path/to/deepeye/.venv/bin/deepeye",
+      "command": "deepeye",
       "args": [],
       "env": {
         "VISION_PROVIDER": "openai",
@@ -616,7 +616,7 @@ Windows 示例（反斜杠转义）：
 {
   "context_servers": {
     "deepeye": {
-      "command": "d:\\AAA_Favio_2026\\AI_exploring\\projects\\deepeye-ai\\deepeye\\.venv\\Scripts\\deepeye.exe",
+      "command": "deepeye",
       "args": [],
       "env": {
         "VISION_PROVIDER": "openai",
@@ -673,7 +673,7 @@ JSON，顶层字段为 `mcpServers`。stdio server 字段：`command`（必填�
 {
   "mcpServers": {
     "deepeye": {
-      "command": "/path/to/deepeye/.venv/bin/deepeye",
+      "command": "deepeye",
       "args": [],
       "env": {
         "VISION_PROVIDER": "openai",
@@ -693,7 +693,7 @@ Windows 示例（反斜杠转义）：
 {
   "mcpServers": {
     "deepeye": {
-      "command": "d:\\AAA_Favio_2026\\AI_exploring\\projects\\deepeye-ai\\deepeye\\.venv\\Scripts\\deepeye.exe",
+      "command": "deepeye",
       "args": [],
       "env": {
         "VISION_PROVIDER": "openai",
@@ -728,18 +728,17 @@ Windows 示例（反斜杠转义）：
 
 DeepEye 使用 pydantic-settings 读取配置，**环境变量优先级高于 `.env` 文件**。各 coding agent 都通过 MCP 配置中的 `env` / `environment` 字段把变量注入到 DeepEye 子进程的环境变量中，这等价于直接设置环境变量，会覆盖项目 `.env` 文件中的同名值。因此推荐在 MCP 配置的 env 字段中直接填写所需的视觉后端凭证，而不依赖 `.env`。
 
-### 2. Windows 路径与反斜杠转义
+### 2. Windows 路径与命令形式
 
-- 在 JSON 配置文件（Cline、Cursor、Windsurf、Continue、Zed、Roo Code、Claude Code 的 `.mcp.json` 等）中，Windows 路径的反斜杠 `\` 必须转义为 `\\`，例如 `d:\\path\\to\\deepeye.exe`。
-- 在 TOML 配置文件（Codex CLI）中，字符串内反斜杠无需双写，但建议 Windows 路径直接用正斜杠 `/`（Python 与多数工具都兼容）以避免歧义。
-- Windows 下 DeepEye 可执行文件路径示例：`d:\AAA_Favio_2026\AI_exploring\projects\deepeye-ai\deepeye\.venv\Scripts\deepeye.exe`。
-- macOS/Linux 下路径示例：`/path/to/deepeye/.venv/bin/deepeye`。
+- 在 JSON 配置文件（Cline、Cursor、Windsurf、Continue、Zed、Roo Code、Claude Code 的 `.mcp.json` 等）中，若 `command` 用 Windows 完整路径，反斜杠 `\` 必须转义为 `\\`，例如 `"command": "D:\\Program Files\\Python314\\python.exe"`。
+- 也可直接用 `"command": "python"` + `"args": ["-m", "deepeye_mcp.server"]`，此时依赖 PATH 中的 `python`。
+- 在 TOML 配置文件（Codex CLI）中，字符串内反斜杠无需双写，但建议 Windows 路径直接用正斜杠 `/` 以避免歧义。
 
-### 3. 虚拟环境路径与绝对路径
+### 3. 启动命令与绝对路径
 
-- DeepEye 的 `deepeye` 入口位于虚拟环境的 `Scripts`（Windows）或 `bin`（macOS/Linux）目录下，务必使用该虚拟环境中的可执行文件路径。
+- DeepEye 是全局安装（`pip install deepeye-mcp` 或源码 `pip install -e .`），启动命令统一为 `deepeye`（等价 `python -m deepeye_mcp.server`）。
 - 多数 coding agent（尤其从 GUI 启动的 VS Code 类插件）不一定继承终端的 shell PATH，**强烈建议在 `command` 中使用绝对路径**而非依赖 `deepeye` 命令的 PATH 解析，可避免 "command not found" 类问题。
-- 也可直接用 `python -m deepeye_mcp.server` 形式，此时 `command` 为虚拟环境的 `python` / `python.exe` 绝对路径，`args` 为 `["-m", "deepeye_mcp.server"]`。
+- 推荐形式：`command` 为 Python 绝对路径，`args` 为 `["-m", "deepeye_mcp.server"]`。Windows 示例：`"command": "D:/Program Files/Python314/python.exe", "args": ["-m", "deepeye_mcp.server"]`。
 
 ### 4. 字段命名差异速查
 
@@ -773,4 +772,4 @@ DeepEye 是 **stdio 类型** MCP Server，配置时只需 `command`（+ `args`�
 2. 按需重启客户端或重新加载配置（Cursor 支持热重载；Windsurf、Zed 等通常需要重启）。
 3. 在客户端的 MCP 管理面板查看 DeepEye 连接状态（绿色 / connected / active 即正常）。
 4. 在对话中显式让 agent 调用 DeepEye 的视觉工具验证端到端可用性。
-5. 排查问题时优先在终端手动运行启动命令（`/path/to/deepeye/.venv/bin/deepeye`）确认进程能正常拉起、环境变量无误。
+5. 排查问题时优先在终端手动运行启动命令（`python -m deepeye_mcp.server`）确认进程能正常拉起、环境变量无误。

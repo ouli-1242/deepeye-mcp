@@ -9,10 +9,12 @@ from __future__ import annotations
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from mcp.types import TextContent
 
 from deepeye_mcp.cache import vision_cache
 from deepeye_mcp.config import settings
+from deepeye_mcp.errors import VisionError
 from deepeye_mcp.tools import (
     _DEFAULT_DESCRIBE_PROMPT,
     _OCR_PROMPT,
@@ -81,7 +83,7 @@ async def test_describe_image_custom_model(mock_factory):
 
     await describe_image(image_source=_DATA_URI, model="gpt-4o-mini")
 
-    mock_factory.assert_called_once_with("gpt-4o-mini")
+    mock_factory.assert_called_once_with("gpt-4o-mini", provider=None)
 
 
 @patch("deepeye_mcp.tools.create_vision_adapter")
@@ -317,37 +319,31 @@ async def test_analyze_layout_json_with_text(mock_factory):
 
 @patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_no_json(mock_factory):
-    """模型未返回 JSON 时应返回包含 "未返回有效 JSON" 的错误文本。"""
+    """模型未返回 JSON 时应抛 VisionError（含 "未返回有效 JSON" 文案）。"""
     mock_adapter = _build_mock_adapter(return_value="我无法分析")
     mock_factory.return_value = mock_adapter
 
-    result = await analyze_layout(image_source=_DATA_URI)
-
-    assert isinstance(result, list)
-    assert len(result) == 1
-    assert isinstance(result[0], TextContent)
-    assert "未返回有效 JSON" in result[0].text
+    with pytest.raises(VisionError, match="未返回有效 JSON"):
+        await analyze_layout(image_source=_DATA_URI)
 
 
 @patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_exception(mock_factory):
-    """适配器抛异常时应返回包含 "布局分析失败" 的友好错误文本。"""
+    """适配器抛异常时应抛 VisionError（含 "布局分析失败" 文案）。"""
     mock_adapter = MagicMock()
     mock_adapter.describe = AsyncMock(side_effect=RuntimeError("adapter boom"))
     mock_factory.return_value = mock_adapter
 
-    result = await analyze_layout(image_source=_DATA_URI)
-
-    assert isinstance(result, list)
-    assert len(result) == 1
-    assert isinstance(result[0], TextContent)
-    assert "布局分析失败" in result[0].text
+    with pytest.raises(VisionError, match="布局分析失败"):
+        await analyze_layout(image_source=_DATA_URI)
 
 
 @patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_prompt_basic(mock_factory):
     """basic 模式 prompt 不应包含样式相关字段（styles / color）。"""
-    mock_adapter = _build_mock_adapter()
+    mock_adapter = _build_mock_adapter(
+        return_value='{"layout_type": "x", "summary": "s", "elements": []}'
+    )
     mock_factory.return_value = mock_adapter
 
     await analyze_layout(image_source=_DATA_URI, detail="basic")
@@ -361,7 +357,9 @@ async def test_analyze_layout_prompt_basic(mock_factory):
 @patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_prompt_detailed(mock_factory):
     """detailed 模式 prompt 应包含样式相关字段（styles / color）。"""
-    mock_adapter = _build_mock_adapter()
+    mock_adapter = _build_mock_adapter(
+        return_value='{"layout_type": "x", "summary": "s", "elements": []}'
+    )
     mock_factory.return_value = mock_adapter
 
     await analyze_layout(image_source=_DATA_URI, detail="detailed")
@@ -378,21 +376,20 @@ async def test_analyze_layout_prompt_detailed(mock_factory):
 
 @patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_describe_image_config_error_classified(mock_factory):
-    """配置缺失类错误应给出「配置错误」提示。"""
+    """配置缺失类错误应抛 VisionError 并含「配置错误」提示。"""
     mock_adapter = MagicMock()
     mock_adapter.describe = AsyncMock(
         side_effect=ValueError("custom_base_url 未配置：使用 custom 视觉后端必须设置 CUSTOM_BASE_URL")
     )
     mock_factory.return_value = mock_adapter
 
-    result = await describe_image(image_source=_DATA_URI)
-
-    assert "配置错误" in result[0].text
+    with pytest.raises(VisionError, match="配置错误"):
+        await describe_image(image_source=_DATA_URI)
 
 
 @patch("deepeye_mcp.tools.create_vision_adapter")
 async def test_analyze_layout_backend_error_has_status(mock_factory):
-    """后端 429 错误应给出限流提示。"""
+    """后端 429 错误应抛含限流提示的 VisionError。"""
     import httpx
 
     request = httpx.Request("POST", "https://example.com/v1/chat/completions")
@@ -403,9 +400,8 @@ async def test_analyze_layout_backend_error_has_status(mock_factory):
     )
     mock_factory.return_value = mock_adapter
 
-    result = await analyze_layout(image_source=_DATA_URI)
-
-    assert "429" in result[0].text
+    with pytest.raises(VisionError, match="429"):
+        await analyze_layout(image_source=_DATA_URI)
 
 
 # ---------------------------------------------------------------------------
@@ -448,9 +444,8 @@ async def test_extract_table_invalid_json_degraded(mock_factory):
     mock_adapter = _build_mock_adapter(return_value="无法识别")
     mock_factory.return_value = mock_adapter
 
-    result = await extract_table(image_source=_DATA_URI)
-
-    assert "表格提取失败" in result[0].text
+    with pytest.raises(VisionError, match="表格提取失败"):
+        await extract_table(image_source=_DATA_URI)
 
 
 # ---------------------------------------------------------------------------
@@ -501,9 +496,8 @@ async def test_analyze_images_isolated_failure(mock_factory, mock_parse):
 async def test_analyze_images_empty_list(mock_factory):
     mock_factory.return_value = _build_mock_adapter()
 
-    result = await analyze_images(image_sources=[])
-
-    assert "不能为空" in result[0].text
+    with pytest.raises(VisionError, match="不能为空"):
+        await analyze_images(image_sources=[])
     mock_factory.assert_not_called()
 
 

@@ -28,6 +28,7 @@ from mcp.types import (
 )
 
 from deepeye_mcp import __version__
+from deepeye_mcp.errors import VisionError
 from deepeye_mcp.tools import (
     analyze_images,
     analyze_layout,
@@ -166,38 +167,57 @@ async def call_tool(
     arguments: dict = params.arguments or {}
     logger.debug("call_tool name={} arguments={}", name, arguments)
 
-    if name == "describe_image":
-        describe_kwargs: dict = {"image_source": arguments["image_source"]}
-        if arguments.get("prompt"):
-            describe_kwargs["prompt"] = arguments["prompt"]
-        if arguments.get("model"):
-            describe_kwargs["model"] = arguments["model"]
-        content: list[TextContent] = await describe_image(**describe_kwargs)
-    elif name == "extract_text":
-        content = await extract_text(
-            image_source=arguments["image_source"],
-            language=arguments.get("language", "auto"),
+    try:
+        if name == "describe_image":
+            describe_kwargs: dict = {"image_source": arguments["image_source"]}
+            if arguments.get("prompt"):
+                describe_kwargs["prompt"] = arguments["prompt"]
+            if arguments.get("model"):
+                describe_kwargs["model"] = arguments["model"]
+            content: list[TextContent] = await describe_image(**describe_kwargs)
+        elif name == "extract_text":
+            content = await extract_text(
+                image_source=arguments["image_source"],
+                language=arguments.get("language", "auto"),
+            )
+        elif name == "ask_about_image":
+            content = await ask_about_image(
+                image_source=arguments["image_source"],
+                question=arguments["question"],
+            )
+        elif name == "analyze_layout":
+            # server 层枚举校验：detail 只接受 basic / detailed
+            detail = arguments.get("detail", "basic")
+            if detail not in ("basic", "detailed"):
+                return CallToolResult(
+                    content=[TextContent(type="text", text=f"detail 参数非法: {detail!r}，仅支持 basic / detailed")],
+                    is_error=True,
+                )
+            content = await analyze_layout(**arguments)
+        elif name == "extract_table":
+            content = await extract_table(
+                image_source=arguments["image_source"],
+                model=arguments.get("model"),
+            )
+        elif name == "analyze_images":
+            if not arguments.get("image_sources"):
+                return CallToolResult(
+                    content=[TextContent(type="text", text="错误：image_sources 数组不能为空")],
+                    is_error=True,
+                )
+            content = await analyze_images(
+                image_sources=arguments["image_sources"],
+                prompt=arguments.get("prompt"),
+                model=arguments.get("model"),
+            )
+        else:
+            raise ValueError(f"未知工具: {name}")
+    except VisionError as exc:
+        # 工具失败统一置 isError=True，让 agent 能区分正常结果与失败
+        return CallToolResult(
+            content=[TextContent(type="text", text=str(exc))],
+            is_error=True,
         )
-    elif name == "ask_about_image":
-        content = await ask_about_image(
-            image_source=arguments["image_source"],
-            question=arguments["question"],
-        )
-    elif name == "analyze_layout":
-        content = await analyze_layout(**arguments)
-    elif name == "extract_table":
-        content = await extract_table(
-            image_source=arguments["image_source"],
-            model=arguments.get("model"),
-        )
-    elif name == "analyze_images":
-        content = await analyze_images(
-            image_sources=arguments["image_sources"],
-            prompt=arguments.get("prompt"),
-            model=arguments.get("model"),
-        )
-    else:
-        raise ValueError(f"未知工具: {name}")
 
     return CallToolResult(content=content)
 

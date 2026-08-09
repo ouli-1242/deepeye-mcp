@@ -55,7 +55,7 @@ def _make_error_client(response: MagicMock) -> AsyncMock:
 # ---------------------------------------------------------------------------
 
 
-@patch("deepeye_mcp.vision.gemini_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.gemini_adapter._get_client")
 async def test_gemini_describe_returns_text(mock_client_cls):
     """describe 应返回 candidates[0].content.parts[0].text（去空白）。"""
     payload = {
@@ -74,7 +74,7 @@ async def test_gemini_describe_returns_text(mock_client_cls):
     assert text == "一只橘猫坐在窗台上"
 
 
-@patch("deepeye_mcp.vision.gemini_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.gemini_adapter._get_client")
 async def test_gemini_describe_payload_and_url(mock_client_cls):
     """验证 URL 拼接、query 参数与 payload 结构。"""
     payload = {
@@ -119,7 +119,7 @@ async def test_gemini_describe_payload_and_url(mock_client_cls):
     }
 
 
-@patch("deepeye_mcp.vision.gemini_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.gemini_adapter._get_client")
 async def test_gemini_describe_raises_on_error_status(mock_client_cls):
     """非 2xx 响应应通过 raise_for_status 抛 HTTPStatusError。"""
     fake_response = MagicMock()
@@ -168,7 +168,7 @@ def test_custom_missing_base_url_via_constructor_raises():
         CustomVisionAdapter(base_url="")
 
 
-@patch("deepeye_mcp.vision.custom_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.custom_adapter._get_client")
 async def test_custom_describe_returns_text(mock_client_cls):
     """describe 应返回 choices[0].message.content（去空白）。"""
     payload = {
@@ -188,7 +188,7 @@ async def test_custom_describe_returns_text(mock_client_cls):
     assert text == "hello world"
 
 
-@patch("deepeye_mcp.vision.custom_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.custom_adapter._get_client")
 async def test_custom_describe_payload_and_url(mock_client_cls):
     """验证 URL、Authorization header 与 OpenAI 兼容 payload 结构。"""
     payload = {
@@ -229,7 +229,7 @@ async def test_custom_describe_payload_and_url(mock_client_cls):
     }
 
 
-@patch("deepeye_mcp.vision.custom_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.custom_adapter._get_client")
 async def test_custom_describe_no_auth_header_when_no_key(mock_client_cls):
     """api_key 为空时不应携带 Authorization 头。"""
     payload = {"choices": [{"message": {"content": "ok"}}]}
@@ -248,7 +248,7 @@ async def test_custom_describe_no_auth_header_when_no_key(mock_client_cls):
     assert "Authorization" not in headers
 
 
-@patch("deepeye_mcp.vision.custom_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.custom_adapter._get_client")
 async def test_custom_describe_raises_on_error_status(mock_client_cls):
     """非 2xx 响应应通过 raise_for_status 抛 HTTPStatusError。"""
     fake_response = MagicMock()
@@ -281,7 +281,7 @@ def test_custom_reads_settings_defaults(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-@patch("deepeye_mcp.vision.custom_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.custom_adapter._get_client")
 async def test_custom_describe_text_no_image(mock_client_cls):
     """describe_text 发送纯文本请求，payload 不含 image_url。"""
     payload = {"choices": [{"message": {"content": "summary"}}]}
@@ -302,7 +302,7 @@ async def test_custom_describe_text_no_image(mock_client_cls):
     assert "image_url" not in str(sent["messages"])
 
 
-@patch("deepeye_mcp.vision.gemini_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.gemini_adapter._get_client")
 async def test_gemini_describe_text(mock_client_cls):
     """Gemini describe_text 走 generateContent，parts 仅含 text。"""
     payload = {"candidates": [{"content": {"parts": [{"text": "summary"}]}}]}
@@ -379,7 +379,7 @@ async def test_openai_describe_text_choices_null_degraded(mock_get_client):
     assert text == ""
 
 
-@patch("deepeye_mcp.vision.custom_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.custom_adapter._get_client")
 async def test_custom_describe_choices_null_degraded(mock_client_cls):
     """custom 适配器 choices 为 None 时返回空串而非抛 TypeError。"""
     mock_client_cls.return_value = _make_fake_client({"choices": None})
@@ -394,7 +394,7 @@ async def test_custom_describe_choices_null_degraded(mock_client_cls):
     assert text == ""
 
 
-@patch("deepeye_mcp.vision.custom_adapter.httpx.AsyncClient")
+@patch("deepeye_mcp.vision.custom_adapter._get_client")
 async def test_custom_describe_text_choices_empty_degraded(mock_client_cls):
     """custom describe_text choices 为空数组时返回空串而非抛 IndexError。"""
     mock_client_cls.return_value = _make_fake_client({"choices": []})

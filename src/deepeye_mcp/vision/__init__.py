@@ -21,11 +21,17 @@ __all__ = [
 ]
 
 
-def create_vision_adapter(model_override: str | None = None) -> VisionAdapter:
+def create_vision_adapter(
+    model_override: str | None = None,
+    provider: str | None = None,
+) -> VisionAdapter:
     """根据 ``settings.vision_provider`` 创建对应视觉适配器实例。
 
     Args:
         model_override: 可选的模型名称覆盖；未指定时使用配置默认值。
+        provider: 可选的视觉后端覆盖（openai / gemini / custom）；
+            未指定时使用 ``settings.vision_provider``。用于 ``extract_text``
+            按 ``settings.ocr_backend`` 指定 OCR 后端。
 
     Returns:
         :class:`VisionAdapter` 具体实例。
@@ -33,11 +39,11 @@ def create_vision_adapter(model_override: str | None = None) -> VisionAdapter:
     Raises:
         ValueError: 不支持的 provider。
     """
-    provider = settings.vision_provider.lower().strip()
+    provider = (provider or settings.vision_provider).lower().strip()
     if provider == "openai":
         return OpenAIVisionAdapter(model=model_override)
     if provider == "gemini":
         return GeminiVisionAdapter(model=model_override)
     if provider == "custom":
         return CustomVisionAdapter(model=model_override)
-    raise ValueError(f"不支持的视觉后端: {settings.vision_provider!r}")
+    raise ValueError(f"不支持的视觉后端: {provider!r}")
