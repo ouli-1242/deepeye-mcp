@@ -47,10 +47,61 @@ OPENAI_MODEL=gpt-5.6-luna
 # OPENAI_BASE_URL=https://your-compatible-service/v1
 ```
 
-### 核心机制：任意 OpenAI 兼容厂商都能用
+### 先选后端：速查表
 
-DeepEye 的视觉后端走的是 **OpenAI Chat Completions 协议**（`/chat/completions` 接口 + `image_url` 传图）。
-这意味着**任何提供 OpenAI 兼容接口的厂商模型都能接入**——不限于 GPT。只需要改 3 个环境变量：
+DeepEye 支持五类视觉后端，用 `VISION_PROVIDER` 切换。**每个后端有自己的变量组**——选好后端填对应那组即可，未填的用默认值：
+
+| 想用什么 | `VISION_PROVIDER` | 需要填的变量 | 典型模型 |
+|---------|-------------------|--------------|---------|
+| 任意 OpenAI 兼容厂商（默认，推荐） | `openai` | `OPENAI_API_KEY` / `OPENAI_MODEL` / `OPENAI_BASE_URL` | `qwen-vl-max`、`glm-4v-plus`、`llava` |
+| OpenAI 官方 gpt-5 系列 | `responses` | `RESPONSES_API_KEY` / `RESPONSES_MODEL` / `RESPONSES_BASE_URL` | `gpt-5.6` |
+| Claude 视觉（高质量档） | `anthropic` | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` / `ANTHROPIC_BASE_URL` | `claude-sonnet-5` |
+| Google Gemini | `gemini` | `GEMINI_API_KEY` / `GEMINI_MODEL` | `gemini-2.0-flash` |
+| Google Gemini（新协议尝鲜） | `gemini-interactions` | `GEMINI_API_KEY` / `GEMINI_MODEL` | Gemini 3.x 系列（见官方文档） |
+
+各后端配置示例（换后端 = 整体替换变量组）：
+
+```dotenv
+# 后端一：任意 OpenAI 兼容厂商（默认，改 base_url 即换厂商）
+VISION_PROVIDER=openai
+OPENAI_API_KEY=sk-your-key
+OPENAI_MODEL=qwen-vl-max
+OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+```
+
+```dotenv
+# 后端二：Claude 视觉（高质量档）
+VISION_PROVIDER=anthropic
+ANTHROPIC_API_KEY=你的key
+ANTHROPIC_MODEL=claude-sonnet-5
+# ANTHROPIC_BASE_URL 默认 https://api.anthropic.com/v1，可改成代理地址
+```
+
+```dotenv
+# 后端三：OpenAI Responses（gpt-5 系列）
+VISION_PROVIDER=responses
+RESPONSES_API_KEY=sk-your-key
+RESPONSES_MODEL=gpt-5.6
+```
+
+```dotenv
+# 后端四：Google Gemini
+VISION_PROVIDER=gemini
+GEMINI_API_KEY=你的key
+GEMINI_MODEL=gemini-2.0-flash
+```
+
+```dotenv
+# 后端五：Google Gemini（Interactions API）
+VISION_PROVIDER=gemini-interactions
+GEMINI_API_KEY=你的key
+GEMINI_MODEL=你的模型
+```
+
+### 核心机制：任意 OpenAI 兼容厂商都能用（openai 后端）
+
+这是默认的 `openai` 后端，走 **OpenAI Chat Completions 协议**（`/chat/completions` 接口 + `image_url` 传图）。
+只要厂商提供 OpenAI 兼容接口，任何模型都能接入——不限于 GPT，**换厂商只需改 3 个变量**（这 3 个变量只属于 openai 后端；其他后端各自的变量组见上方速查表）：
 
 | 变量 | 作用 |
 |------|------|
@@ -146,30 +197,8 @@ DeepEye 支持五类视觉后端，用 `VISION_PROVIDER` 切换：
 
 > **一句话总结**：日常用 `openai`；想要最强视觉质量且能访问 Anthropic 用 `anthropic`；
 > 用 OpenAI 官方 gpt-5 系列用 `responses`；Gemini 两个协议是「有时想用 Google 模型」时的备选。
-
-切换到 Gemini：
-
-```bash
-VISION_PROVIDER=gemini
-GEMINI_API_KEY=你的key
-GEMINI_MODEL=gemini-2.0-flash
-```
-
-切换到 Anthropic（Claude 视觉）：
-
-```bash
-VISION_PROVIDER=anthropic
-ANTHROPIC_API_KEY=你的key
-ANTHROPIC_MODEL=claude-sonnet-5
-```
-
-切换到 OpenAI Responses（gpt-5 系列）：
-
-```bash
-VISION_PROVIDER=responses
-RESPONSES_API_KEY=sk-your-key
-RESPONSES_MODEL=gpt-5.6
-```
+>
+> **各后端的完整配置示例见上文「先选后端：速查表」。**
 
 > **协议说明**：`openai` / `responses` 传 OpenAI 兼容格式（本地 Ollama/vLLM 也走
 > `openai`，改 `OPENAI_BASE_URL` 即可）；
@@ -258,23 +287,50 @@ Server 通过 stdio 与 MCP 客户端通信，单独运行不会输出交互界�
 
 ## 配置参考
 
-所有配置通过环境变量或 `.env` 文件加载（参考 `.env.example`）：
+所有配置通过环境变量或 `.env` 文件加载（参考 `.env.example`）。按后端分组：
+
+**后端选择（全局）**
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `VISION_PROVIDER` | `openai` | 视觉后端提供者：`openai` / `gemini` / `gemini-interactions` / `anthropic` / `responses` |
+| `OCR_BACKEND` | `openai` | `extract_text` 实际使用的视觉后端（可单独指定） |
+
+**openai 后端（默认，OpenAI 兼容协议）**
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
 | `OPENAI_API_KEY` | — | OpenAI 或兼容服务的 API Key |
 | `OPENAI_MODEL` | `gpt-5.6-luna` | 视觉模型名称 |
 | `OPENAI_BASE_URL` | — | 接口地址，留空用官方 `https://api.openai.com/v1`；可改为 Azure / 代理 / 兼容服务 |
+
+**gemini / gemini-interactions 后端（Google 协议）**
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
 | `GEMINI_API_KEY` | — | Gemini 后端 API Key |
 | `GEMINI_MODEL` | `gemini-1.5-pro` | Gemini 模型名称 |
+
+**anthropic 后端（Claude Messages API）**
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
 | `ANTHROPIC_API_KEY` | — | Anthropic Claude API Key（原生 Messages API） |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | Claude 视觉模型名 |
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com/v1` | Anthropic 接口地址 |
+
+**responses 后端（OpenAI Responses API）**
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
 | `RESPONSES_API_KEY` | — | OpenAI Responses API Key |
 | `RESPONSES_MODEL` | `gpt-5.6` | Responses 视觉模型名 |
 | `RESPONSES_BASE_URL` | `https://api.openai.com/v1` | Responses 接口地址（OpenAI 官方协议） |
-| `OCR_BACKEND` | `openai` | `extract_text` 实际使用的视觉后端 |
+
+**通用（所有后端共用）**
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
 | `IMAGE_MAX_DIM` | `2048` | 图片预处理最大边长（像素），超过则等比缩放转 JPEG；`0` 禁用预处理 |
 | `CACHE_ENABLED` | `true` | 是否开启视觉结果缓存（LRU + TTL） |
 | `CACHE_MAX_SIZE` | `128` | 缓存最大条目数 |
@@ -285,6 +341,8 @@ Server 通过 stdio 与 MCP 客户端通信，单独运行不会输出交互界�
 | `REASONING_EFFORT` | 空 | 推理深度 `low`/`medium`/`high`；留空不发送该参数（部分后端不支持） |
 | `MAX_IMAGE_BYTES` | `20971520` | 图片大小上限（字节），三种来源（URL / 本地路径 / data URI）统一校验，超过拒绝 |
 | `ALLOW_PRIVATE_URLS` | `false` | 是否允许访问内网/保留地址（SSRF 防护，默认禁止；仅本地调试设为 `true`） |
+
+> 厂商 base_url 示例见上文「各厂商 base_url 参考」，后端类型切换见「切换后端类型」。
 
 > 厂商 base_url 示例见上文「各厂商 base_url 参考」，后端类型切换见「切换后端类型」。
 
