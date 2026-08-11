@@ -67,7 +67,8 @@ _TOOLS: list[Tool] = [
         name="extract_text",
         description="提取图片中的文字（OCR），保持原文排版，不加额外描述。"
         "何时用：图片/截图里有需要照抄的文字（报错信息、票据、白板笔记）。"
-        "何时不用：要理解内容含义用 describe_image 或 ask_about_image。",
+        "何时不用：要理解内容含义用 describe_image 或 ask_about_image；"
+        "表格/图表截图要结构化数据用 extract_table（本工具不保留行列结构）。",
         inputSchema={
             "type": "object",
             "properties": {
